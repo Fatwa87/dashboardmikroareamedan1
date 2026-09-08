@@ -219,9 +219,9 @@
             const processLogin = (e) => {
                 e.preventDefault();
                 const { username, password } = loginData;
-                if (username === 'Area' && password === 'Area@123!') {
+                if (username === 'admin' && password === 'admin123') {
                     handleLoginSuccess('Area');
-                } else if (username === 'Mikro' && password === 'Mikro@123!') {
+                } else if (username === 'ao' && password === 'ao123') {
                     handleLoginSuccess('Mikro');
                 } else {
                     setLoginError('Username atau Password salah!');
