@@ -39,6 +39,10 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
+        // === PENTING: MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI SINI ===
+        // Ganti tulisan URL_SCRIPT_ANDA_DISINI dengan link Web App dari Google Sheet Anda
+        const GLOBAL_SHEET_URL = "URL_SCRIPT_ANDA_DISINI";
+
         const formatRupiah = (number) => {
             return new Intl.NumberFormat('id-ID', {
                 style: 'currency',
@@ -75,7 +79,8 @@
 
             const [activeTab, setActiveTab] = useState('dashboard');
             const [data, setData] = useState([]);
-            const [sheetUrl, setSheetUrl] = useState('');
+            // URL sekarang otomatis menggunakan yang ditanam di kode atas
+            const [sheetUrl, setSheetUrl] = useState(GLOBAL_SHEET_URL);
             const [isLoading, setIsLoading] = useState(false);
             const [toastMessage, setToastMessage] = useState(null);
 
@@ -97,7 +102,6 @@
 
             useEffect(() => {
                 const savedData = localStorage.getItem('mikroData');
-                const savedUrl = localStorage.getItem('sheetUrl');
                 const savedRole = localStorage.getItem('userRole');
                 const savedAo = localStorage.getItem('aoList');
                 const savedProducts = localStorage.getItem('productList');
@@ -105,17 +109,18 @@
                 const savedNpl = localStorage.getItem('nplData');
                 
                 if (savedData) setData(JSON.parse(savedData));
-                if (savedUrl) setSheetUrl(savedUrl);
+                // Baris if (savedUrl) setSheetUrl(savedUrl); dihapus karena sudah tidak terpakai
                 if (savedRole) setUserRole(savedRole);
                 if (savedAo) setAoList(JSON.parse(savedAo));
                 if (savedProducts) setProductList(JSON.parse(savedProducts));
                 if (savedLar) setLarData(JSON.parse(savedLar));
                 if (savedNpl) setNplData(JSON.parse(savedNpl));
+                // URL sekarang otomatis menggunakan GLOBAL_SHEET_URL yang ditanam di kode atas
             }, []);
 
             // Tarik data otomatis setiap login berhasil (jika URL sheet sudah diatur)
             useEffect(() => {
-                if (userRole && sheetUrl) {
+                if (userRole && sheetUrl && !sheetUrl.includes('URL_SCRIPT')) {
                     syncFromSheet();
                 }
             }, [userRole]);
@@ -174,7 +179,7 @@
 
             // Helper: Mengirim perubahan daftar AO / Produk ke Spreadsheet
             const syncMasterToSheet = (newAoList, newProductList) => {
-                if (!sheetUrl) return;
+                if (!sheetUrl || sheetUrl.includes('URL_SCRIPT')) return;
                 const maxLength = Math.max(newAoList.length, newProductList.length);
                 const twoDArray = [['AO', 'Produk']]; // Header baris pertama
                 for(let i=0; i<maxLength; i++) {
@@ -182,7 +187,7 @@
                 }
                 fetch(sheetUrl, {
                     method: 'POST', mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ action: 'save_master', data: twoDArray })
                 });
             };
@@ -193,11 +198,11 @@
                 setData(newData);
                 localStorage.setItem('mikroData', JSON.stringify(newData));
 
-                if (sheetUrl) {
+                if (sheetUrl && !sheetUrl.includes('URL_SCRIPT')) {
                     try {
                         await fetch(sheetUrl, {
                             method: 'POST', mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'text/plain' },
                             // Format Baru: Memasukkan parameter 'action'
                             body: JSON.stringify({ action: 'add_pencairan', data: formData })
                         });
@@ -329,15 +334,15 @@
                             }
                             
                             // Kirim Database Upload CSV ke Google Sheet
-                            if(sheetUrl) {
+                            if(sheetUrl && !sheetUrl.includes('URL_SCRIPT')) {
                                 fetch(sheetUrl, {
                                     method: 'POST', mode: 'no-cors',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: { 'Content-Type': 'text/plain' },
                                     body: JSON.stringify({ action: type === 'LAR' ? 'upload_lar' : 'upload_npl', data: twoDArrayForSheet })
                                 });
-                                showToast(`Berhasil! ${parsedData.length} data ${type} disimpan di Cloud.`);
+                                showToast(`Berhasil! ${parsedData.length} data ${type} dikirim ke Cloud.`);
                             } else {
-                                showToast(`Disimpan lokal (Hubungkan Sheet agar bisa dilihat AO)`);
+                                showToast(`Disimpan lokal (Masukkan URL di kode agar bisa dilihat AO)`);
                             }
                         } catch (error) {
                             showToast(`Gagal Upload ${type}: ${error.message}`, 'error');
@@ -878,12 +883,19 @@ function getSheetDataAs2D(ss, sheetName) {
 </html>
 ```
 
-### Langkah Penting Selanjutnya:
-Karena kode aplikasinya (HTML) dan kode *Apps Script*-nya kita rubah total, silakan ikuti panduan ini:
-1. Update (*Commit/Save*) kode HTML baru ini ke **GitHub Anda** (sama seperti cara Anda mengupload awal tadi).
-2. Buka Aplikasi Anda, login sebagai Admin, pergi ke menu **Pengaturan Sheet**.
-3. **PENTING:** Anda akan melihat kode Apps Script V2 yang baru. Copy kode tersebut, paste di Google Apps Script Anda (timpa kode yang lama).
-4. Klik **Terapkan (Deploy)** -> **Deployment Baru (New Deployment)**. *Jangan menggunakan "Kelola Deployment"!*
-5. Copy URL Web App baru tersebut dan simpan di aplikasi.
+### Langkah 2: Cara Menerapkannya di GitHub Anda (Penting!)
 
-Sekarang, setiap kali Admin mengupload data LAR/NPL atau menambahkan nama AO, datanya akan langsung terbang ke Spreadsheet. Begitu AO login dari HP mereka, aplikasi akan otomatis menarik seluruh data tersebut dari Spreadsheet ke HP mereka!
+Karena web Anda sudah *live* di GitHub (`fatwa87.github.io`), Anda harus memasukkan URL-nya langsung di GitHub:
+
+1. Buka situs [**github.com**](https://github.com/) dan login ke akun Anda.
+2. Buka repository Anda: **`dashboardareamedan1`**.
+3. Klik file **`index.html`** yang ada di daftar file.
+4. Di pojok kanan atas kotak kode, klik **ikon Pensil ✏️ (Edit this file)**.
+5. Hapus semua kode lama, dan **paste** seluruh kode HTML terbaru (yang sudah tergabung dengan perbaikan di atas).
+6. **Langkah Paling Penting:** Cari baris kode `const GLOBAL_SHEET_URL = "URL_SCRIPT_ANDA_DISINI";` (ada di sekitar baris ke-46).
+7. Hapus tulisan `URL_SCRIPT_ANDA_DISINI` dan **ganti/paste dengan URL Google Apps Script Anda yang asli**.
+   *(Contoh jadinya: `const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbxyz.../exec";`)*
+8. Klik tombol hijau **Commit changes** di kanan atas.
+9. Tunggu sekitar 2 menit agar GitHub memproses pembaruannya.
+
+Selesai! Sekarang coba buka aplikasinya dari HP Anda atau teman Anda. Saat login, sistem akan otomatis mengenali URL Sheet yang sudah tertanam di GitHub dan menarik semua datanya tanpa perlu mengatur URL secara manual lagi di setiap HP!
