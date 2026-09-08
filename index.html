@@ -13,24 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .sidebar-active {
-            background-color: #eff6ff;
-            color: #1d4ed8;
-            border-right: 4px solid #1d4ed8;
-        }
-        .toast-enter {
-            transform: translateY(100%);
-            opacity: 0;
-        }
-        .toast-enter-active {
-            transform: translateY(0);
-            opacity: 1;
-            transition: all 300ms ease-out;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .sidebar-active { background-color: #eff6ff; color: #1d4ed8; border-right: 4px solid #1d4ed8; }
+        .toast-enter { transform: translateY(100%); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 300ms ease-out; }
     </style>
 </head>
 <body>
@@ -39,8 +25,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // === PENTING: MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI SINI ===
-        // Ganti tulisan URL_SCRIPT_ANDA_DISINI dengan link Web App dari Google Sheet Anda
+        // === PENTING: URL GOOGLE APPS SCRIPT SUDAH DITANAM ===
         const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbx7IjJnhuWFzVCFhWG-VAsVXC4b6Gac2YLBAkl3-AhNpmuvDxV_waPqKV2hS45CAQr2/exec";
 
         const formatRupiah = (number) => {
@@ -57,9 +42,11 @@
                     <circle cx="200" cy="200" r="190" fill="#ffffff" stroke="#f97316" strokeWidth="10" />
                     <path d="M 200 10 A 190 190 0 0 1 390 200" fill="none" stroke="#0f172a" strokeWidth="15" />
                     <path d="M 10 200 A 190 190 0 0 0 200 390" fill="none" stroke="#0f172a" strokeWidth="15" />
+                    
                     <path d="M 50 350 L 140 260" stroke="#f97316" strokeWidth="8" strokeLinecap="round" />
                     <path d="M 40 320 L 120 240" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round" />
                     <path d="M 80 360 L 160 280" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round" />
+
                     <g transform="translate(180, 150) rotate(45)">
                         <path d="M0,-80 C30,-30 40,40 40,80 L-40,80 C-40,40 -30,-30 0,-80 Z" fill="#ffffff" stroke="#0f172a" strokeWidth="8"/>
                         <circle cx="0" cy="-10" r="12" fill="#f97316" stroke="#0f172a" strokeWidth="4"/>
@@ -67,6 +54,7 @@
                         <path d="M40,40 L70,80 L40,80 Z" fill="#0f172a"/>
                         <path d="M0,40 L0,90" stroke="#0f172a" strokeWidth="8"/>
                     </g>
+
                     <g transform="translate(160, 210) rotate(-15)">
                         <path d="M 0 0 L 220 0 L 200 100 L -20 100 Z" fill="#0f172a" />
                         <text x="20" y="35" fill="#ffffff" fontFamily="Inter, sans-serif" fontWeight="900" fontSize="30" letterSpacing="1">AREA</text>
@@ -79,7 +67,6 @@
 
             const [activeTab, setActiveTab] = useState('dashboard');
             const [data, setData] = useState([]);
-            // URL sekarang otomatis menggunakan yang ditanam di kode atas
             const [sheetUrl, setSheetUrl] = useState(GLOBAL_SHEET_URL);
             const [isLoading, setIsLoading] = useState(false);
             const [toastMessage, setToastMessage] = useState(null);
@@ -109,18 +96,15 @@
                 const savedNpl = localStorage.getItem('nplData');
                 
                 if (savedData) setData(JSON.parse(savedData));
-                // Baris if (savedUrl) setSheetUrl(savedUrl); dihapus karena sudah tidak terpakai
                 if (savedRole) setUserRole(savedRole);
                 if (savedAo) setAoList(JSON.parse(savedAo));
                 if (savedProducts) setProductList(JSON.parse(savedProducts));
                 if (savedLar) setLarData(JSON.parse(savedLar));
                 if (savedNpl) setNplData(JSON.parse(savedNpl));
-                // URL sekarang otomatis menggunakan GLOBAL_SHEET_URL yang ditanam di kode atas
             }, []);
 
-            // Tarik data otomatis setiap login berhasil (jika URL sheet sudah diatur)
             useEffect(() => {
-                if (userRole && sheetUrl && !sheetUrl.includes('URL_SCRIPT')) {
+                if (userRole && sheetUrl) {
                     syncFromSheet();
                 }
             }, [userRole]);
@@ -130,7 +114,6 @@
                 setTimeout(() => setToastMessage(null), 4000);
             };
 
-            // FUNGSI BARU: Menarik SEMUA tab dari Spreadsheet (Pencairan, LAR, NPL, Master)
             const syncFromSheet = async () => {
                 if (!sheetUrl) return;
                 setIsLoading(true);
@@ -139,26 +122,21 @@
                     const result = await response.json();
                     
                     if(result) {
-                        // 1. Data Pencairan
                         if(result.pencairan) {
                             const validData = result.pencairan.filter(item => item.Tanggal || item.Nama);
                             setData(validData);
                             localStorage.setItem('mikroData', JSON.stringify(validData));
                         }
-                        // 2. Data LAR
                         if(result.lar) {
                             setLarData(result.lar);
                             localStorage.setItem('larData', JSON.stringify(result.lar));
                         }
-                        // 3. Data NPL
                         if(result.npl) {
                             setNplData(result.npl);
                             localStorage.setItem('nplData', JSON.stringify(result.npl));
                         }
-                        // 4. Data Master (AO & Produk)
                         if(result.master && result.master.length > 1) {
                             const ao = [], prod = [];
-                            // Mulai dari 1 karena index 0 adalah Header
                             for(let i=1; i<result.master.length; i++){
                                 if(result.master[i][0]) ao.push(result.master[i][0]);
                                 if(result.master[i][1]) prod.push(result.master[i][1]);
@@ -171,17 +149,15 @@
                         showToast('Database Cloud Tersinkronisasi!');
                     }
                 } catch (error) {
-                    console.error("Error fetching data:", error);
                     showToast('Gagal menarik data dari Database', 'error');
                 }
                 setIsLoading(false);
             };
 
-            // Helper: Mengirim perubahan daftar AO / Produk ke Spreadsheet
             const syncMasterToSheet = (newAoList, newProductList) => {
-                if (!sheetUrl || sheetUrl.includes('URL_SCRIPT')) return;
+                if (!sheetUrl) return;
                 const maxLength = Math.max(newAoList.length, newProductList.length);
-                const twoDArray = [['AO', 'Produk']]; // Header baris pertama
+                const twoDArray = [['AO', 'Produk']];
                 for(let i=0; i<maxLength; i++) {
                     twoDArray.push([newAoList[i] || '', newProductList[i] || '']);
                 }
@@ -192,18 +168,42 @@
                 });
             };
 
+            const deleteDataPencairan = async (itemToDelete) => {
+                setIsLoading(true);
+                const newData = data.filter(item => item !== itemToDelete);
+                setData(newData);
+                localStorage.setItem('mikroData', JSON.stringify(newData));
+
+                if (sheetUrl) {
+                    try {
+                        await fetch(sheetUrl, {
+                            method: 'POST', mode: 'no-cors',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({ 
+                                action: 'delete_pencairan', 
+                                NoKredit: itemToDelete.NoKredit, 
+                                Tanggal: itemToDelete.Tanggal 
+                            })
+                        });
+                        showToast('Data berhasil dihapus dari Cloud!');
+                    } catch (error) {
+                        showToast('Gagal menghapus dari Database Cloud.', 'error');
+                    }
+                }
+                setIsLoading(false);
+            };
+
             const submitData = async (formData) => {
                 setIsLoading(true);
                 const newData = [...data, formData];
                 setData(newData);
                 localStorage.setItem('mikroData', JSON.stringify(newData));
 
-                if (sheetUrl && !sheetUrl.includes('URL_SCRIPT')) {
+                if (sheetUrl) {
                     try {
                         await fetch(sheetUrl, {
                             method: 'POST', mode: 'no-cors',
                             headers: { 'Content-Type': 'text/plain' },
-                            // Format Baru: Memasukkan parameter 'action'
                             body: JSON.stringify({ action: 'add_pencairan', data: formData })
                         });
                         showToast('Data berhasil disimpan ke Cloud Database!');
@@ -240,17 +240,17 @@
                     const updated = [...aoList, newAo];
                     setAoList(updated);
                     localStorage.setItem('aoList', JSON.stringify(updated));
-                    syncMasterToSheet(updated, productList); // Sinkron ke sheet
+                    syncMasterToSheet(updated, productList);
                     setNewAo('');
-                    showToast('AO berhasil ditambahkan ke Server');
+                    showToast('AO berhasil ditambahkan');
                 };
 
                 const removeAo = (ao) => {
                     const updated = aoList.filter(c => c !== ao);
                     setAoList(updated);
                     localStorage.setItem('aoList', JSON.stringify(updated));
-                    syncMasterToSheet(updated, productList); // Sinkron ke sheet
-                    showToast('AO dihapus dari Server', 'error');
+                    syncMasterToSheet(updated, productList);
+                    showToast('AO dihapus', 'error');
                 };
 
                 const addProduct = () => {
@@ -258,17 +258,17 @@
                     const updated = [...productList, newProduct];
                     setProductList(updated);
                     localStorage.setItem('productList', JSON.stringify(updated));
-                    syncMasterToSheet(aoList, updated); // Sinkron ke sheet
+                    syncMasterToSheet(aoList, updated);
                     setNewProduct('');
-                    showToast('Produk berhasil ditambahkan ke Server');
+                    showToast('Produk berhasil ditambahkan');
                 };
 
                 const removeProduct = (prod) => {
                     const updated = productList.filter(p => p !== prod);
                     setProductList(updated);
                     localStorage.setItem('productList', JSON.stringify(updated));
-                    syncMasterToSheet(aoList, updated); // Sinkron ke sheet
-                    showToast('Produk dihapus dari Server', 'error');
+                    syncMasterToSheet(aoList, updated);
+                    showToast('Produk dihapus', 'error');
                 };
 
                 const downloadCSV = () => {
@@ -284,7 +284,7 @@
                 };
 
                 const downloadTemplateCSV = (type) => {
-                    const headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,KOLEKTIBILITAS,HARI_TUNGGAKAN,UP,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,2,45,5000000,UPC A,CH-1,CABANG A\n01-09-2026,654321,K-002,Siti Aminah,ARRUM BPKB,01-02-2026,24,5,120,12000000,UPC B,CH-2,CABANG B';
+                    const headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,KOLEKTIBILITAS,HARI_TUNGGAKAN,UP,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,2,45,5000000,UPC A,CH-1,CABANG A';
                     const blob = new Blob([headers], { type: 'text/csv' });
                     const a = document.createElement('a');
                     a.href = window.URL.createObjectURL(blob);
@@ -292,7 +292,6 @@
                     document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 };
 
-                // FUNGSI BARU: Upload CSV dan Lempar ke Google Sheet
                 const processCSVUpload = (file, type) => {
                     const reader = new FileReader();
                     reader.onload = (event) => {
@@ -309,7 +308,7 @@
                             if(missing.length > 0) throw new Error(`Kolom hilang: ${missing.join(', ')}`);
 
                             const parsedData = [];
-                            const twoDArrayForSheet = [headers]; // Array format Excel
+                            const twoDArrayForSheet = [headers];
 
                             for (let i = 1; i < lines.length; i++) {
                                 if (!lines[i].trim()) continue;
@@ -333,16 +332,13 @@
                                 localStorage.setItem('nplData', JSON.stringify(parsedData));
                             }
                             
-                            // Kirim Database Upload CSV ke Google Sheet
-                            if(sheetUrl && !sheetUrl.includes('URL_SCRIPT')) {
+                            if(sheetUrl) {
                                 fetch(sheetUrl, {
                                     method: 'POST', mode: 'no-cors',
                                     headers: { 'Content-Type': 'text/plain' },
                                     body: JSON.stringify({ action: type === 'LAR' ? 'upload_lar' : 'upload_npl', data: twoDArrayForSheet })
                                 });
                                 showToast(`Berhasil! ${parsedData.length} data ${type} dikirim ke Cloud.`);
-                            } else {
-                                showToast(`Disimpan lokal (Masukkan URL di kode agar bisa dilihat AO)`);
                             }
                         } catch (error) {
                             showToast(`Gagal Upload ${type}: ${error.message}`, 'error');
@@ -360,7 +356,7 @@
                             <div className="bg-orange-50 p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col justify-between items-start gap-4">
                                 <div>
                                     <h2 className="text-xl font-bold text-orange-800"><i className="fas fa-exclamation-circle mr-2"></i>Upload Data LAR</h2>
-                                    <p className="text-sm text-orange-600 mt-1">Sistem sekarang akan menyimpan CSV ke Cloud Sheet</p>
+                                    <p className="text-sm text-orange-600 mt-1">Sistem akan menyimpan CSV ke Cloud Sheet</p>
                                     <button onClick={() => downloadTemplateCSV('LAR')} className="mt-3 text-xs bg-white text-orange-700 px-3 py-1.5 border border-orange-200 rounded hover:bg-orange-100 transition font-medium">
                                         <i className="fas fa-download mr-1"></i> Template
                                     </button>
@@ -376,7 +372,7 @@
                             <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-100 flex flex-col justify-between items-start gap-4">
                                 <div>
                                     <h2 className="text-xl font-bold text-red-800"><i className="fas fa-exclamation-triangle mr-2"></i>Upload Data NPL</h2>
-                                    <p className="text-sm text-red-600 mt-1">Sistem sekarang akan menyimpan CSV ke Cloud Sheet</p>
+                                    <p className="text-sm text-red-600 mt-1">Sistem akan menyimpan CSV ke Cloud Sheet</p>
                                     <button onClick={() => downloadTemplateCSV('NPL')} className="mt-3 text-xs bg-white text-red-700 px-3 py-1.5 border border-red-200 rounded hover:bg-red-100 transition font-medium">
                                         <i className="fas fa-download mr-1"></i> Template
                                     </button>
@@ -391,9 +387,7 @@
                         </div>
 
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-800">Download Data Pencapaian</h2>
-                            </div>
+                            <div><h2 className="text-xl font-bold text-gray-800">Download Data Pencapaian</h2></div>
                             <button onClick={downloadCSV} className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center space-x-2 transition font-medium">
                                 <i className="fas fa-file-excel"></i> <span>Download Excel/CSV</span>
                             </button>
@@ -451,9 +445,25 @@
                 });
                 
                 const totalOut = filteredData.reduce((sum, item) => sum + (Number(item.UP) || 0), 0);
+                
+                const downloadCsvNasabah = () => {
+                    if (filteredData.length === 0) return showToast('Tidak ada data untuk didownload', 'error');
+                    const headers = Object.keys(filteredData[0]);
+                    const csvRows = [headers.join(',')];
+                    filteredData.forEach(row => {
+                        const values = headers.map(header => `"${row[header] || ''}"`);
+                        csvRows.push(values.join(','));
+                    });
+                    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+                    const a = document.createElement('a');
+                    a.href = window.URL.createObjectURL(blob);
+                    a.download = `Data_${title}_${selectedCabang}.csv`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                };
+
                 const colorConfig = {
-                    lar: { bg: 'bg-orange-50', border: 'border-orange-100', text: 'text-orange-800', iconBg: 'bg-orange-200', iconText: 'text-orange-700', badge: 'bg-orange-500' },
-                    npl: { bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-800', iconBg: 'bg-red-200', iconText: 'text-red-700', badge: 'bg-red-600' }
+                    lar: { bg: 'bg-orange-50', border: 'border-orange-100', text: 'text-orange-800', iconBg: 'bg-orange-200', iconText: 'text-orange-700' },
+                    npl: { bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-800', iconBg: 'bg-red-200', iconText: 'text-red-700' }
                 };
                 const conf = colorConfig[type] || colorConfig.lar;
 
@@ -467,16 +477,19 @@
                             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
                                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                                     <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Cabang:</label>
-                                    <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-40 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm">
+                                    <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-32 p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm">
                                         {cabangList.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                                     <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Outlet:</label>
-                                    <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-40 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm">
+                                    <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-32 p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm">
                                         {outletList.map((outlet, idx) => <option key={idx} value={outlet}>{outlet}</option>)}
                                     </select>
                                 </div>
+                                <button onClick={downloadCsvNasabah} className={`w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors ${type === 'lar' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                                    <i className="fas fa-download mr-1"></i> Download
+                                </button>
                             </div>
                         </div>
 
@@ -490,17 +503,11 @@
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
                                         <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><i className="fas fa-users text-2xl"></i></div>
-                                        <div>
-                                            <p className="text-sm text-gray-500 font-medium">Total Nasabah {title}</p>
-                                            <p className="text-xl md:text-2xl font-bold text-gray-800">{filteredData.length} Nasabah</p>
-                                        </div>
+                                        <div><p className="text-sm text-gray-500 font-medium">Total Nasabah {title}</p><p className="text-xl md:text-2xl font-bold text-gray-800">{filteredData.length} Nasabah</p></div>
                                     </div>
                                     <div className={`${conf.bg} p-6 rounded-xl shadow-sm border ${conf.border} flex items-center space-x-4`}>
                                         <div className={`p-3 ${conf.iconBg} ${conf.iconText} rounded-lg`}><i className={`fas ${icon} text-2xl`}></i></div>
-                                        <div>
-                                            <p className={`text-sm ${conf.iconText} font-medium`}>Total Outstanding (UP) {title}</p>
-                                            <p className={`text-xl md:text-2xl font-bold ${conf.text}`}>{formatRupiah(totalOut)}</p>
-                                        </div>
+                                        <div><p className={`text-sm ${conf.iconText} font-medium`}>Total Outstanding (UP) {title}</p><p className={`text-xl md:text-2xl font-bold ${conf.text}`}>{formatRupiah(totalOut)}</p></div>
                                     </div>
                                 </div>
 
@@ -526,9 +533,7 @@
                                                         <td className="p-4 text-gray-700">{item.CUSTOMER_NM}</td>
                                                         <td className="p-4 text-gray-600 whitespace-nowrap">{item['SUB PRODUK']}</td>
                                                         <td className="p-4 font-semibold text-gray-800">{formatRupiah(item.UP)}</td>
-                                                        <td className="p-4 text-center">
-                                                            <span className="px-2 py-1 rounded text-xs font-bold bg-gray-200 text-gray-800">{item.KOLEKTIBILITAS || '-'}</span>
-                                                        </td>
+                                                        <td className="p-4 text-center"><span className="px-2 py-1 rounded text-xs font-bold bg-gray-200 text-gray-800">{item.KOLEKTIBILITAS || '-'}</span></td>
                                                         <td className="p-4 text-center text-red-600 font-medium whitespace-nowrap">{item.HARI_TUNGGAKAN} Hari</td>
                                                         <td className="p-4 text-gray-600 whitespace-nowrap">{item.CABANG}</td>
                                                         <td className="p-4 text-gray-600 whitespace-nowrap">{item.OUTLET}</td>
@@ -549,18 +554,26 @@
             const NplView = () => <TableNasabahView title="NPL" data={nplData} type="npl" icon="fa-exclamation-triangle" />;
 
             const Dashboard = () => {
+                const todayStr = new Date().toISOString().split('T')[0];
                 const [selectedAO, setSelectedAO] = useState('Semua');
+                const [startDate, setStartDate] = useState(todayStr); // Reset otomatis hari ini
+                const [endDate, setEndDate] = useState(todayStr); // Reset otomatis hari ini
+                
                 const aoListData = data.map(item => item.Petugas).filter(Boolean);
                 const combinedAoList = ['Semua', ...new Set([...aoListData, ...aoList])];
                 const activeAOs = new Set(data.map(item => item.Petugas));
                 const inactiveAOs = aoList.filter(ao => !activeAOs.has(ao));
 
-                const filteredData = selectedAO === 'Semua' ? data : data.filter(item => item.Petugas === selectedAO);
+                // Filter berdasar AO dan Rentang Tanggal
+                const filteredData = data.filter(item => {
+                    const matchAo = selectedAO === 'Semua' || item.Petugas === selectedAO;
+                    const matchDate = item.Tanggal >= startDate && item.Tanggal <= endDate;
+                    return matchAo && matchDate;
+                });
+
                 const totalPlafon = filteredData.reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
                 const totalNasabah = filteredData.length;
                 
-                const currentMonth = new Date().getMonth();
-                const totalBulanIni = filteredData.filter(item => new Date(item.Tanggal).getMonth() === currentMonth).reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
                 const productStats = filteredData.reduce((acc, item) => {
                     const prod = item.Produk || 'Belum Kategori';
                     if (!acc[prod]) acc[prod] = { count: 0, amount: 0 };
@@ -570,12 +583,23 @@
                 return (
                     <div className="space-y-6">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
-                            <h2 className="text-2xl font-bold text-gray-800">Dashboard Pencapaian</h2>
-                            <div className="flex items-center space-x-2 w-full md:w-auto">
-                                <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Filter AO:</label>
-                                <select value={selectedAO} onChange={(e) => setSelectedAO(e.target.value)} className="w-full md:w-48 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                                    {combinedAoList.map((ao, idx) => <option key={idx} value={ao}>{ao}</option>)}
-                                </select>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">Dashboard Pencapaian</h2>
+                                <p className="text-sm text-gray-500 mt-1">Data ditampilkan berdasar rentang tanggal yang dipilih.</p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                    <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Filter Tgl:</label>
+                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm" />
+                                    <span className="text-gray-400">-</span>
+                                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm" />
+                                </div>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                    <label className="text-sm font-medium text-gray-600 whitespace-nowrap">AO:</label>
+                                    <select value={selectedAO} onChange={(e) => setSelectedAO(e.target.value)} className="w-full sm:w-40 p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm">
+                                        {combinedAoList.map((ao, idx) => <option key={idx} value={ao}>{ao}</option>)}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -591,23 +615,19 @@
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
                                 <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><i className="fas fa-users text-2xl"></i></div>
-                                <div><p className="text-sm text-gray-500 font-medium">Total Nasabah</p><p className="text-2xl font-bold text-gray-800">{totalNasabah}</p></div>
+                                <div><p className="text-sm text-gray-500 font-medium">Total Nasabah (Rentang Terpilih)</p><p className="text-2xl font-bold text-gray-800">{totalNasabah}</p></div>
                             </div>
                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
                                 <div className="p-3 bg-green-100 text-green-600 rounded-lg"><i className="fas fa-money-bill-wave text-2xl"></i></div>
-                                <div><p className="text-sm text-gray-500 font-medium">Total Pencapaian</p><p className="text-xl md:text-2xl font-bold text-gray-800">{formatRupiah(totalPlafon)}</p></div>
-                            </div>
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                                <div className="p-3 bg-purple-100 text-purple-600 rounded-lg"><i className="fas fa-calendar-alt text-2xl"></i></div>
-                                <div><p className="text-sm text-gray-500 font-medium">Bulan Ini</p><p className="text-xl md:text-2xl font-bold text-gray-800">{formatRupiah(totalBulanIni)}</p></div>
+                                <div><p className="text-sm text-gray-500 font-medium">Total Pencapaian (Rentang Terpilih)</p><p className="text-xl md:text-2xl font-bold text-gray-800">{formatRupiah(totalPlafon)}</p></div>
                             </div>
                         </div>
 
                         <div className="mt-8">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4">Pencapaian Per Produk {selectedAO !== 'Semua' ? `(${selectedAO})` : ''}</h3>
+                            <h3 className="text-lg font-bold text-gray-800 mb-4">Pencapaian Per Produk</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {Object.keys(productStats).length > 0 ? (
                                     Object.entries(productStats).map(([prod, stats], idx) => (
@@ -617,7 +637,7 @@
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="col-span-full p-4 bg-gray-50 text-gray-500 text-center rounded-lg border border-dashed border-gray-200">Belum ada data untuk ditampilkan.</div>
+                                    <div className="col-span-full p-4 bg-gray-50 text-gray-500 text-center rounded-lg border border-dashed border-gray-200">Tidak ada pencairan di rentang tanggal ini.</div>
                                 )}
                             </div>
                         </div>
@@ -637,21 +657,19 @@
                         <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4">Formulir Pencairan Baru</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pencairan</label><input type="date" name="Tanggal" value={form.Tanggal} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pencairan</label><input type="date" name="Tanggal" value={form.Tanggal} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition" /></div>
                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Nama Petugas / AO</label>
                                     {aoList.length > 0 ? (
-                                        <select name="Petugas" value={form.Petugas} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
-                                            <option value="" disabled>-- Pilih Nama Petugas --</option>{aoList.map((ao, idx) => <option key={idx} value={ao}>{ao}</option>)}
-                                        </select>
+                                        <select name="Petugas" value={form.Petugas} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition"><option value="" disabled>-- Pilih Nama Petugas --</option>{aoList.map((ao, idx) => <option key={idx} value={ao}>{ao}</option>)}</select>
                                     ) : (
-                                        <input type="text" name="Petugas" value={form.Petugas} onChange={handleChange} required placeholder="Ketik Manual" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                                        <input type="text" name="Petugas" value={form.Petugas} onChange={handleChange} required placeholder="Ketik Manual" className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition" />
                                     )}
                                 </div>
-                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nama Nasabah</label><input type="text" name="Nama" value={form.Nama} onChange={handleChange} required placeholder="Nama Lengkap Nasabah" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" /></div>
-                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nomor Kredit</label><input type="text" name="NoKredit" value={form.NoKredit} onChange={handleChange} required placeholder="Masukkan Nomor Kredit" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" /></div>
-                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Jenis Produk</label><select name="Produk" value={form.Produk} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">{productList.map((prod, idx) => <option key={idx} value={prod}>{prod}</option>)}</select></div>
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nominal Plafon (Rp)</label><input type="number" name="Plafon" value={form.Plafon} onChange={handleChange} required placeholder="Contoh: 5000000" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" /></div>
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tenor (Bulan)</label><select name="Tenor" value={form.Tenor} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nama Nasabah</label><input type="text" name="Nama" value={form.Nama} onChange={handleChange} required placeholder="Nama Lengkap Nasabah" className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition" /></div>
+                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nomor Kredit</label><input type="text" name="NoKredit" value={form.NoKredit} onChange={handleChange} required placeholder="Masukkan Nomor Kredit" className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition" /></div>
+                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Jenis Produk</label><select name="Produk" value={form.Produk} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition">{productList.map((prod, idx) => <option key={idx} value={prod}>{prod}</option>)}</select></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nominal Plafon (Rp)</label><input type="number" name="Plafon" value={form.Plafon} onChange={handleChange} required placeholder="Contoh: 5000000" className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tenor (Bulan)</label><select name="Tenor" value={form.Tenor} onChange={handleChange} required className="w-full p-2.5 border border-gray-300 rounded-lg outline-none transition">
                                     <option value="3">3 Bulan</option><option value="4">4 Bulan</option><option value="6">6 Bulan</option><option value="12">12 Bulan</option><option value="18">18 Bulan</option><option value="24">24 Bulan</option><option value="36">36 Bulan</option><option value="48">48 Bulan</option><option value="60">60 Bulan</option>
                                 </select></div>
                             </div>
@@ -665,6 +683,22 @@
                 );
             };
 
+            const DeleteButton = ({ item, onDelete }) => {
+                const [confirm, setConfirm] = useState(false);
+                if (confirm) {
+                    return (
+                        <div className="flex flex-col space-y-1">
+                            <span className="text-[10px] text-gray-500">Yakin?</span>
+                            <div className="flex space-x-1">
+                                <button onClick={() => onDelete(item)} className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">Ya</button>
+                                <button onClick={() => setConfirm(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs">Batal</button>
+                            </div>
+                        </div>
+                    );
+                }
+                return <button onClick={() => setConfirm(true)} className="text-red-500 hover:text-red-700 p-2"><i className="fas fa-trash"></i></button>;
+            };
+
             const DataTable = () => {
                 const [searchTerm, setSearchTerm] = useState('');
                 const filteredData = data.filter(item => (item.Nama && item.Nama.toLowerCase().includes(searchTerm.toLowerCase())) || ((item.NoKredit) && String(item.NoKredit).includes(searchTerm)) || (item.Petugas && item.Petugas.toLowerCase().includes(searchTerm.toLowerCase())));
@@ -674,13 +708,15 @@
                         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
                             <h2 className="text-xl font-bold text-gray-800">Data Pencairan</h2>
                             <div className="flex gap-2 w-full md:w-auto">
-                                <div className="relative w-full md:w-64"><i className="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" placeholder="Cari Nama/No.Kredit/AO..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/></div>
+                                <div className="relative w-full md:w-64"><i className="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" placeholder="Cari Nama/No.Kredit/AO..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none"/></div>
                                 <button onClick={syncFromSheet} disabled={!sheetUrl || isLoading} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100 transition disabled:opacity-50"><i className={`fas fa-sync-alt ${isLoading ? 'fa-spin' : ''}`}></i></button>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
-                                <thead><tr className="bg-gray-50 text-gray-600 text-sm border-b"><th className="p-4 font-medium">Tanggal</th><th className="p-4 font-medium">Nama Nasabah</th><th className="p-4 font-medium">Produk</th><th className="p-4 font-medium">Plafon</th><th className="p-4 font-medium">Tenor</th><th className="p-4 font-medium">Petugas (AO)</th></tr></thead>
+                                <thead><tr className="bg-gray-50 text-gray-600 text-sm border-b"><th className="p-4 font-medium">Tanggal</th><th className="p-4 font-medium">Nama Nasabah</th><th className="p-4 font-medium">Produk</th><th className="p-4 font-medium">Plafon</th><th className="p-4 font-medium">Tenor</th><th className="p-4 font-medium">Petugas (AO)</th>
+                                {userRole === 'admin' && <th className="p-4 font-medium text-center">Aksi</th>}
+                                </tr></thead>
                                 <tbody>
                                     {filteredData.length > 0 ? filteredData.map((item, index) => (
                                         <tr key={index} className="border-b hover:bg-gray-50 transition text-sm">
@@ -689,8 +725,9 @@
                                             <td className="p-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs font-medium border border-blue-100">{item.Produk || '-'}</span></td>
                                             <td className="p-4 text-gray-800 font-semibold whitespace-nowrap">{formatRupiah(item.Plafon)}</td>
                                             <td className="p-4 text-gray-600 whitespace-nowrap">{item.Tenor} Bln</td><td className="p-4 text-gray-600 whitespace-nowrap">{item.Petugas}</td>
+                                            {userRole === 'admin' && <td className="p-4 text-center"><DeleteButton item={item} onDelete={deleteDataPencairan} /></td>}
                                         </tr>
-                                    )) : <tr><td colSpan="6" className="p-8 text-center text-gray-500">Belum ada data ditemukan.</td></tr>}
+                                    )) : <tr><td colSpan={userRole==='admin'?7:6} className="p-8 text-center text-gray-500">Belum ada data ditemukan.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -699,8 +736,7 @@
             };
 
             const Settings = () => {
-                const saveUrl = () => { localStorage.setItem('sheetUrl', sheetUrl); showToast('URL Spreadsheet berhasil disimpan!'); };
-                const scriptCode = `// KODE GOOGLE APPS SCRIPT V2 (CLOUD DATABASE SYSTEM)
+                const scriptCode = `// KODE GOOGLE APPS SCRIPT (UPDATED)
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
@@ -711,9 +747,20 @@ function doPost(e) {
       if(sheet.getLastRow() === 0) sheet.appendRow(['Tanggal', 'Nama', 'NoKredit', 'Produk', 'Plafon', 'Tenor', 'Petugas']);
       sheet.appendRow([payload.data.Tanggal, payload.data.Nama, payload.data.NoKredit, payload.data.Produk, payload.data.Plafon, payload.data.Tenor, payload.data.Petugas]);
     }
+    else if (payload.action === 'delete_pencairan') {
+      var sheet = getOrCreateSheet(ss, 'Pencairan');
+      var data = sheet.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        // Cari baris yang Tanggal dan NoKredit-nya sama (NoKredit di index 2, Tanggal di index 0)
+        if (data[i][0] == payload.Tanggal && data[i][2] == payload.NoKredit) {
+          sheet.deleteRow(i + 1);
+          break; 
+        }
+      }
+    }
     else if (payload.action === 'upload_lar') {
       var sheet = getOrCreateSheet(ss, 'LAR');
-      sheet.clear(); // Hapus data lama
+      sheet.clear(); 
       if(payload.data && payload.data.length > 0) sheet.getRange(1, 1, payload.data.length, payload.data[0].length).setValues(payload.data);
     }
     else if (payload.action === 'upload_npl') {
@@ -771,24 +818,14 @@ function getSheetDataAs2D(ss, sheetName) {
 
                 return (
                     <div className="space-y-6 max-w-4xl">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Pengaturan Database Cloud (Google Sheet)</h2>
-                            <p className="text-sm text-gray-600 mb-4">Masukkan URL Web App Google Apps Script versi terbaru di bawah ini.</p>
-                            <div className="flex gap-2">
-                                <input type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://script.google.com/macros/s/AKfycb.../exec" className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
-                                <button onClick={saveUrl} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition whitespace-nowrap">Simpan URL</button>
-                            </div>
-                        </div>
-
                         <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                            <h3 className="text-lg font-bold text-blue-900 mb-4"><i className="fas fa-book mr-2"></i>Wajib Update Script Anda!</h3>
-                            <p className="text-sm text-red-600 font-bold mb-2">Karena sistem telah ditingkatkan, Anda WAJIB mengupdate kode di Google Sheet Anda:</p>
+                            <h3 className="text-lg font-bold text-blue-900 mb-4"><i className="fas fa-book mr-2"></i>Pembaruan Wajib Google Sheet (Sistem Hapus Data)</h3>
+                            <p className="text-sm text-red-600 font-bold mb-2">Karena sekarang ada fitur untuk HAPUS DATA, Anda wajib meng-update kode Apps Script ini sekali lagi:</p>
                             <ol className="list-decimal list-inside space-y-3 text-sm text-blue-800">
-                                <li>Buka Google Sheet lama Anda, klik menu <strong>Ekstensi</strong> &gt; <strong>Apps Script</strong>.</li>
+                                <li>Buka Google Sheet Anda, klik menu <strong>Ekstensi</strong> &gt; <strong>Apps Script</strong>.</li>
                                 <li><strong>Hapus semua kode lama</strong>, lalu paste kode baru di bawah ini.</li>
-                                <li>Klik tombol <strong>Terapkan (Deploy)</strong> di kanan atas &gt; <strong className="text-red-600">PILIH "Deployment Baru" (Jangan Manage Deployment!)</strong>.</li>
-                                <li>Pilih <strong>Aplikasi Web</strong>, pastikan Akses: <strong>Siapa Saja (Anyone)</strong>. Lalu klik <strong>Terapkan</strong>.</li>
-                                <li>Copy <strong>URL Aplikasi Web</strong> yang baru dan paste di atas. Selesai! Tidak perlu membuat tab manual, Script ini akan otomatis membuatkannya untuk Anda.</li>
+                                <li>Simpan, lalu klik <strong>Terapkan (Deploy)</strong> &gt; <strong className="text-red-600">Deployment Baru</strong>.</li>
+                                <li>URL-nya tidak akan berubah, langsung saja selesai. Script Anda sekarang bisa mengeksekusi fitur Hapus.</li>
                             </ol>
                             <div className="mt-6 relative">
                                 <div className="absolute top-0 right-0 p-2">
@@ -811,12 +848,11 @@ function getSheetDataAs2D(ss, sheetName) {
                                 <div className="bg-white/95 backdrop-blur p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md text-center relative z-10 border border-gray-100">
                                     <div className="md:hidden mx-auto mb-6 flex justify-center"><SvgLogo className="h-28 w-28 drop-shadow-md" /></div>
                                     <h1 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Area Medan 1</h1>
-                                    <p className="text-gray-500 text-sm mb-8">Silakan masukkan kredensial Anda</p>
-                                    <form onSubmit={processLogin} className="space-y-4 text-left">
+                                    <form onSubmit={processLogin} className="space-y-4 text-left mt-8">
                                         {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200"><i className="fas fa-exclamation-circle mr-2"></i> {loginError}</div>}
-                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Username</label><div className="relative"><i className="fas fa-user absolute left-3 top-3.5 text-gray-400"></i><input type="text" name="username" value={loginData.username} onChange={handleLoginChange} required placeholder="Masukkan Username" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white/50" /></div></div>
-                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><div className="relative"><i className="fas fa-key absolute left-3 top-3.5 text-gray-400"></i><input type="password" name="password" value={loginData.password} onChange={handleLoginChange} required placeholder="Masukkan Password" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white/50" /></div></div>
-                                        <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold transition flex items-center justify-center space-x-2 mt-6 shadow-md hover:shadow-lg"><i className="fas fa-sign-in-alt"></i> <span>Masuk Aplikasi</span></button>
+                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Username</label><div className="relative"><i className="fas fa-user absolute left-3 top-3.5 text-gray-400"></i><input type="text" name="username" value={loginData.username} onChange={handleLoginChange} required placeholder="Masukkan Username" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none bg-white/50" /></div></div>
+                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><div className="relative"><i className="fas fa-key absolute left-3 top-3.5 text-gray-400"></i><input type="password" name="password" value={loginData.password} onChange={handleLoginChange} required placeholder="Masukkan Password" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none bg-white/50" /></div></div>
+                                        <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold transition flex items-center justify-center space-x-2 mt-6 shadow-md"><i className="fas fa-sign-in-alt"></i> <span>Masuk Aplikasi</span></button>
                                     </form>
                                 </div>
                             </div>
@@ -881,21 +917,3 @@ function getSheetDataAs2D(ss, sheetName) {
     </script>
 </body>
 </html>
-```
-
-### Langkah 2: Cara Menerapkannya di GitHub Anda (Penting!)
-
-Karena web Anda sudah *live* di GitHub (`fatwa87.github.io`), Anda harus memasukkan URL-nya langsung di GitHub:
-
-1. Buka situs [**github.com**](https://github.com/) dan login ke akun Anda.
-2. Buka repository Anda: **`dashboardareamedan1`**.
-3. Klik file **`index.html`** yang ada di daftar file.
-4. Di pojok kanan atas kotak kode, klik **ikon Pensil ✏️ (Edit this file)**.
-5. Hapus semua kode lama, dan **paste** seluruh kode HTML terbaru (yang sudah tergabung dengan perbaikan di atas).
-6. **Langkah Paling Penting:** Cari baris kode `const GLOBAL_SHEET_URL = "URL_SCRIPT_ANDA_DISINI";` (ada di sekitar baris ke-46).
-7. Hapus tulisan `URL_SCRIPT_ANDA_DISINI` dan **ganti/paste dengan URL Google Apps Script Anda yang asli**.
-   *(Contoh jadinya: `const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbxyz.../exec";`)*
-8. Klik tombol hijau **Commit changes** di kanan atas.
-9. Tunggu sekitar 2 menit agar GitHub memproses pembaruannya.
-
-Selesai! Sekarang coba buka aplikasinya dari HP Anda atau teman Anda. Saat login, sistem akan otomatis mengenali URL Sheet yang sudah tertanam di GitHub dan menarik semua datanya tanpa perlu mengatur URL secara manual lagi di setiap HP!
