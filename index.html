@@ -31,7 +31,7 @@
         const { useState, useEffect, useMemo } = React;
 
         // URL GOOGLE APPS SCRIPT TERBARU SUDAH DITANAM DI SINI
-        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbzDBBVzhFBEEoW1GpXqbnjMHwYmOuNJFMyCaLB8sUfGvOFFKDSzgtY1HeqIrc8Ri2YB/exec";
+        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbzwr2oTjCG_mMj53jFO_gbIM71pANpMlMSBmnOfYzXWopAXUcVL9NDn3TBr0KAXxiCs/exec";
 
         const formatRupiah = (number) => {
             return new Intl.NumberFormat('id-ID', {
@@ -134,7 +134,15 @@
                     
                     if(result) {
                         if(result.pencairan) {
-                            const validData = result.pencairan.filter(item => item.Tanggal || item.Nama);
+                            const validData = result.pencairan.filter(item => item.Tanggal || item.Nama).map(item => {
+                                // PERBAIKAN ZONA WAKTU: Paksa tambah 7 Jam (WIB) agar tidak mundur ke kemarin
+                                if (item.Tanggal && typeof item.Tanggal === 'string' && item.Tanggal.includes('T')) {
+                                    const d = new Date(item.Tanggal);
+                                    d.setHours(d.getHours() + 7); 
+                                    item.Tanggal = d.toISOString().split('T')[0];
+                                }
+                                return item;
+                            });
                             setData(validData);
                             localStorage.setItem('mikroData', JSON.stringify(validData));
                         }
@@ -204,11 +212,14 @@
                 if (sheetUrl) {
                     try {
                         let tglFormat = itemToDelete.Tanggal;
-                        if (tglFormat.includes('T')) tglFormat = tglFormat.split('T')[0];
+                        if (tglFormat && tglFormat.includes('T')) tglFormat = tglFormat.split('T')[0];
+                        
+                        // PERBAIKAN: Payload 'Nama' telah ditambahkan kembali untuk presisi pencarian di DB
                         await fetch(sheetUrl, {
                             method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'delete_pencairan', NoKredit: itemToDelete.NoKredit, Tanggal: tglFormat })
+                            body: JSON.stringify({ action: 'delete_pencairan', NoKredit: itemToDelete.NoKredit, Nama: itemToDelete.Nama, Tanggal: tglFormat })
                         });
+                        
                         showToast('Data berhasil dihapus dari Cloud!');
                     } catch (error) {
                         showToast('Gagal menghapus dari Database Cloud.', 'error');
