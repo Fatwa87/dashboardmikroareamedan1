@@ -12,7 +12,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Mesin Cetak PDF Presisi Vektor (Tanpa Terpotong) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
@@ -57,19 +56,22 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbz0SCsPRGJLk8Fqv_4RFkr-yEGU6UK6ggleEl28ffoyDVTyEVyqL96ucLizZc1Ngbcb/exec";
+        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbx35pGG1PNzkSsLikdrsCBGOA8FV6P8zFYj7fClBsBmbBxhvphb053RpmU_5QtO3oRA/exec";
 
-        // Normalisasi Tanggal Anti-Mundur (Timezone-Proof YYYY-MM-DD)
         const normalizeDate = (d) => {
             if (!d) return '';
             if (typeof d === 'string') {
-                if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 10);
-                const parts = d.split(/[-/]/);
-                if (parts.length === 3) {
+                const s = d.trim();
+                // Format YYYY-MM-DD murni tanpa jam
+                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                // Format DD/MM/YYYY atau DD-MM-YYYY tanpa jam
+                const parts = s.split(/[-/]/);
+                if (parts.length === 3 && parts.every(p => !p.includes('T') && !p.includes(' ') && !p.includes(':'))) {
                     if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
                     if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                 }
             }
+            // Tangani string ISO UTC dari Google Sheet (misal: 2026-09-07T17:00:00.000Z) agar terkonversi ke WIB lokal
             const dt = new Date(d);
             if (isNaN(dt.getTime())) return '';
             const year = dt.getFullYear();
@@ -80,6 +82,49 @@
 
         const formatRupiah = (angka) => {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+        };
+
+        const normalizeRecord = (item, isReal = true) => {
+            if (!item || typeof item !== 'object') return null;
+            
+            const getVal = (keys) => {
+                for (let k of keys) {
+                    if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== '') {
+                        return String(item[k]).trim();
+                    }
+                }
+                const itemKeys = Object.keys(item);
+                for (let target of keys) {
+                    const cleanTarget = target.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const foundKey = itemKeys.find(ik => ik.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget);
+                    if (foundKey && item[foundKey] !== undefined && item[foundKey] !== null && String(item[foundKey]).trim() !== '') {
+                        return String(item[foundKey]).trim();
+                    }
+                }
+                return '';
+            };
+
+            const rawTanggal = getVal(['Tanggal', 'TGL_DATA', 'Tgl', 'Date']);
+            const cleanTanggal = normalizeDate(rawTanggal) || new Date().toLocaleDateString('en-CA');
+            const nama = getVal(['Nama', 'CUSTOMER_NM', 'Nama Nasabah', 'NamaNasabah']);
+            const noKredit = getVal(['NoKredit', 'NO_KONTRAK', 'No_Kredit', 'NoKontrak', 'NomorKredit']);
+            const cabang = getVal(['Cabang', 'CABANG', 'Nama Cabang', 'NamaCabang', 'Unit', 'Outlet']);
+            const produk = getVal(['Produk', 'SUB PRODUK', 'SubProduk', 'JenisProduk']);
+            const rawPlafon = getVal(['Plafon', 'UP', 'OSL', 'Nominal', 'Plafon Pencairan', 'Estimasi']);
+            const cleanPlafon = String(rawPlafon).replace(/\D/g, '') || '0';
+            const tenor = getVal(['Tenor', 'TENOR', 'JangkaWaktu']);
+            const petugas = getVal(['Petugas', 'AO', 'AdminMikro', 'Admin Mikro', 'Nama Petugas', 'PetugasAO']);
+
+            return {
+                Tanggal: cleanTanggal,
+                Nama: nama,
+                NoKredit: noKredit,
+                Cabang: cabang,
+                Produk: produk,
+                Plafon: cleanPlafon,
+                Tenor: tenor,
+                Petugas: petugas
+            };
         };
 
         const generatePdfReport = ({
@@ -109,8 +154,8 @@
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const todayStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-                // Header Resmi Kop Surat
-                doc.setFillColor(15, 23, 42); // Navy 900
+                // Garis Aksen & Kop Surat Resmi
+                doc.setFillColor(15, 23, 42);
                 doc.rect(12, 10, pageWidth - 24, 1.2, 'F');
 
                 doc.setFont('helvetica', 'bold');
@@ -137,7 +182,7 @@
 
                 let startY = subtitle ? 30 : 27;
 
-                // Kartu Ringkasan Metrik
+                // Kotak Metrik Ringkasan
                 if (summaryStats && summaryStats.length > 0) {
                     let badgeX = 12;
                     summaryStats.forEach((stat) => {
@@ -255,7 +300,6 @@
             }
         };
 
-        // Komponen Logo Resmi: Mendukung file asli (logo.jpeg, logo.jpg, logo.png) serta Vektor Presisi "AREA MEDAN 1 JUARA"
         const RocketLogo = ({ size = 64, className = "" }) => {
             const [imgIdx, setImgIdx] = useState(0);
             const candidateSources = [
@@ -280,47 +324,26 @@
             return (
                 <div style={{ width: size, height: size }} className={`relative flex items-center justify-center select-none ${className}`}>
                     <svg viewBox="0 0 300 300" className="w-full h-full drop-shadow-md" xmlns="http://www.w3.org/2000/svg">
-                        {/* Lingkaran Luar Putih Bersih */}
                         <circle cx="150" cy="150" r="140" fill="#ffffff" />
-
-                        {/* Busur Ganda Lingkaran Oranye & Biru Navy */}
                         <path d="M 52 96 A 114 114 0 0 1 230 230" fill="none" stroke="#f97316" strokeWidth="15" strokeLinecap="round" />
                         <path d="M 230 230 A 114 114 0 0 1 52 96" fill="none" stroke="#0c1e35" strokeWidth="15" strokeLinecap="round" />
-
-                        {/* Semburan Api Peluncur Roket Dinamis Menembus Lingkaran ke Kiri Bawah */}
                         <path d="M 88 156 L 24 228 L 56 186 L 14 246 L 72 182 L 34 256 L 98 188 Z" fill="#ff7a00" />
                         <path d="M 92 160 L 42 222 L 66 184 L 34 234 L 82 182 Z" fill="#ffaa00" />
                         <path d="M 96 164 L 58 210 L 76 186 L 52 218 L 88 184 Z" fill="#ffe066" />
-
-                        {/* Dual Nozel Roket Mesin Pendorong */}
                         <ellipse cx="94" cy="148" rx="8" ry="4.5" transform="rotate(-48 94 148)" fill="#0c1e35" stroke="#ffffff" strokeWidth="1.5" />
                         <ellipse cx="106" cy="160" rx="8" ry="4.5" transform="rotate(-48 106 160)" fill="#0c1e35" stroke="#ffffff" strokeWidth="1.5" />
-
-                        {/* Sayap Roket Kiri dan Kanan */}
                         <path d="M 125 118 L 88 128 L 102 150 Z" fill="#0c1e35" />
                         <path d="M 148 142 L 138 178 L 118 162 Z" fill="#0c1e35" />
-
-                        {/* Badan Utama Roket Putih Aerodinamis */}
                         <path d="M 98 152 C 112 110, 150 68, 204 50 C 206 58, 202 72, 186 96 C 160 134, 126 164, 108 164 Z" fill="#ffffff" stroke="#0c1e35" strokeWidth="5.5" strokeLinejoin="round" />
-
-                        {/* Garis Aksen Badan Bawah Oranye */}
                         <path d="M 142 120 C 164 92, 192 65, 204 50 C 196 68, 178 110, 142 144 C 122 160, 110 164, 108 164 C 118 156, 130 138, 142 120 Z" fill="#f97316" />
-
-                        {/* Jendela Kokpit Roket */}
                         <circle cx="174" cy="78" r="9" fill="#f97316" stroke="#0c1e35" strokeWidth="3.5" />
                         <circle cx="174" cy="78" r="4.5" fill="#0c1e35" />
                         <circle cx="172" cy="76" r="1.5" fill="#ffffff" />
-
-                        {/* Lencana Banner Poligon Navy "AREA MEDAN JUARA" */}
                         <polygon points="110,235 152,158 252,112 268,186 238,245 138,244" fill="#0c1e35" />
-
-                        {/* Tipografi Resmi Sesuai Logo Asli (Tergrup dengan Kemiringan Dinamis) */}
                         <g transform="rotate(-15 185 195)">
                             <text x="126" y="162" fill="#ffffff" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="21" letterSpacing="0.5">AREA</text>
                             <text x="122" y="184" fill="#ffffff" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="21" letterSpacing="0.5">MEDAN</text>
                             <text x="124" y="206" fill="#ffffff" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="20" letterSpacing="0.8">JUARA</text>
-
-                            {/* Angka '1' Besar Oranye Menjulang di Samping Kanan */}
                             <text x="210" y="196" fill="#f97316" stroke="#0c1e35" strokeWidth="2.5" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="62">1</text>
                         </g>
                     </svg>
@@ -335,18 +358,28 @@
             const [isLoading, setIsLoading] = useState(false);
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             
-            // Modal dialog pengganti confirm()
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
 
-            // State Data Inti
-            const [dataPencairan, setDataPencairan] = useState([]);
-            const [dataEstimasi, setDataEstimasi] = useState([]);
+            // State Data Inti dengan Pengisian Awal Berbasiskan LocalStorage (Anti-Kosong)
+            const [dataPencairan, setDataPencairan] = useState(() => {
+                try {
+                    const local = localStorage.getItem('dataPencairan');
+                    return local ? JSON.parse(local) : [];
+                } catch(e) { return []; }
+            });
+            const [dataEstimasi, setDataEstimasi] = useState(() => {
+                try {
+                    const local = localStorage.getItem('dataEstimasi');
+                    return local ? JSON.parse(local) : [];
+                } catch(e) { return []; }
+            });
+
             const [kol1Data, setKol1Data] = useState([]);
             const [larData, setLarData] = useState([]);
             const [nplData, setNplData] = useState([]);
             const [reportData, setReportData] = useState([]);
             
-            // State Master Data (AO, Admin Mikro, Produk, Cabang)
+            // State Master Data
             const [aoList, setAoList] = useState(JSON.parse(localStorage.getItem('aoList')) || []);
             const [adminList, setAdminList] = useState(JSON.parse(localStorage.getItem('adminList')) || []);
             const [productList, setProductList] = useState(JSON.parse(localStorage.getItem('productList')) || []);
@@ -381,8 +414,21 @@
                     const response = await fetch(GLOBAL_SHEET_URL);
                     if (response.ok) {
                         const result = await response.json();
-                        if (result.pencairan) setDataPencairan(result.pencairan);
-                        if (result.estimasi) setDataEstimasi(result.estimasi);
+                        
+                        // Normalisasi dan simpan pencairan
+                        if (result.pencairan && Array.isArray(result.pencairan)) {
+                            const cleaned = result.pencairan.map(it => normalizeRecord(it, true)).filter(Boolean);
+                            setDataPencairan(cleaned);
+                            localStorage.setItem('dataPencairan', JSON.stringify(cleaned));
+                        }
+                        
+                        // Normalisasi dan simpan estimasi
+                        if (result.estimasi && Array.isArray(result.estimasi)) {
+                            const cleaned = result.estimasi.map(it => normalizeRecord(it, false)).filter(Boolean);
+                            setDataEstimasi(cleaned);
+                            localStorage.setItem('dataEstimasi', JSON.stringify(cleaned));
+                        }
+
                         if (result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
                         if (result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
                         if (result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
@@ -490,16 +536,13 @@
 
                 return (
                     <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-[#f8fafc] p-4 lg:p-12 relative overflow-hidden">
-                        {/* Garis Aksen Latar Belakang Lingkaran Halus */}
                         <div className="absolute -left-20 -top-20 w-96 h-96 rounded-full border border-slate-200/60 pointer-events-none"></div>
                         <div className="absolute -right-20 -bottom-20 w-96 h-96 rounded-full border border-orange-200/40 pointer-events-none"></div>
 
-                        {/* Logo Kiri Persis Gambar Referensi */}
                         <div className="mb-8 md:mb-0 md:mr-16 flex flex-col items-center justify-center text-center relative z-10">
                             <RocketLogo size={240} className="hover:scale-105 transition-transform duration-300" />
                         </div>
 
-                        {/* Kartu Login Bersih & Presisi */}
                         <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md border border-slate-200 relative z-10">
                             <h1 className="text-2xl font-extrabold text-slate-800 text-center mb-8">Dashboard Area Medan 1</h1>
                             
@@ -584,10 +627,23 @@
                     setIsLoading(true);
                     
                     const cleanPlafon = formData.Plafon.toString().replace(/\D/g, '');
-                    const newData = { ...formData, Plafon: cleanPlafon };
+                    const cleanDate = normalizeDate(formData.Tanggal) || new Date().toLocaleDateString('en-CA');
+                    const newData = { 
+                        ...formData, 
+                        Tanggal: cleanDate,
+                        Plafon: cleanPlafon 
+                    };
                     
-                    if (isReal) setDataPencairan([...dataPencairan, newData]);
-                    else setDataEstimasi([...dataEstimasi, newData]);
+                    // Simpan instan ke state dan LocalStorage
+                    if (isReal) {
+                        const updated = [newData, ...dataPencairan];
+                        setDataPencairan(updated);
+                        localStorage.setItem('dataPencairan', JSON.stringify(updated));
+                    } else {
+                        const updated = [newData, ...dataEstimasi];
+                        setDataEstimasi(updated);
+                        localStorage.setItem('dataEstimasi', JSON.stringify(updated));
+                    }
                     
                     if (GLOBAL_SHEET_URL) {
                         try {
@@ -698,13 +754,15 @@
                     return normalizeDate(item.Tanggal) === filterDate;
                 });
 
-                const totalPlafon = filteredData.reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
+                const totalPlafon = filteredData.reduce((sum, item) => sum + (Number(String(item.Plafon || 0).replace(/\D/g, '')) || 0), 0);
                 const groupedByProduct = filteredData.reduce((acc, item) => {
-                    acc[item.Produk] = (acc[item.Produk] || 0) + (Number(item.Plafon) || 0);
+                    const prod = item.Produk || 'Lainnya';
+                    const val = Number(String(item.Plafon || 0).replace(/\D/g, '')) || 0;
+                    acc[prod] = (acc[prod] || 0) + val;
                     return acc;
                 }, {});
 
-                // Logika Monitoring Notifikasi: Petugas yang Belum Melakukan Penginputan
+                // Logika Monitoring Petugas Belum Input
                 const targetOfficers = isReal ? adminList : aoList;
                 const submittedOfficers = filteredData.map(item => (item.Petugas || '').trim()).filter(Boolean);
                 const submittedSet = new Set(submittedOfficers.map(name => name.toLowerCase()));
@@ -728,7 +786,7 @@
                             </div>
                         </div>
 
-                        {/* FITUR BARU: Widget Notifikasi Petugas Belum Input */}
+                        {/* Widget Monitoring Notifikasi Petugas Belum Input */}
                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                                 <div className="flex items-center space-x-3">
@@ -765,7 +823,6 @@
                                         </div>
                                     </div>
 
-                                    {/* Tag Nama Petugas Belum Input */}
                                     <div className="flex flex-wrap gap-2.5 pt-1">
                                         {pendingOfficers.map((name, idx) => (
                                             <span key={idx} className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
@@ -775,7 +832,6 @@
                                         ))}
                                     </div>
 
-                                    {/* Rincian Petugas yang Sudah Input */}
                                     {completedOfficers.length > 0 && (
                                         <details className="mt-4 pt-3 border-t border-slate-100 group">
                                             <summary className="cursor-pointer text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-between list-none">
@@ -855,7 +911,13 @@
                         onConfirm: async () => {
                             setIsLoading(true);
                             const newData = data.filter(d => isReal ? (d.NoKredit !== item.NoKredit) : (d.Nama !== item.Nama || d.Produk !== item.Produk));
-                            if (isReal) setDataPencairan(newData); else setDataEstimasi(newData);
+                            if (isReal) {
+                                setDataPencairan(newData);
+                                localStorage.setItem('dataPencairan', JSON.stringify(newData));
+                            } else {
+                                setDataEstimasi(newData);
+                                localStorage.setItem('dataEstimasi', JSON.stringify(newData));
+                            }
                             setData(newData);
 
                             if (GLOBAL_SHEET_URL) {
@@ -891,7 +953,7 @@
                     return matchSearch && matchDate;
                 });
 
-                const totalFilteredPlafon = filtered.reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
+                const totalFilteredPlafon = filtered.reduce((sum, item) => sum + (Number(String(item.Plafon || 0).replace(/\D/g, '')) || 0), 0);
 
                 const downloadPDF = () => {
                     setIsLoading(true);
@@ -1269,10 +1331,10 @@
                                                 </tr>
                                                 <tr className="bg-slate-50 text-slate-600 text-xs border-b">
                                                     <th className="p-2 font-semibold border-l">Target</th><th className="p-2 font-semibold">Realisasi</th><th className="p-2 font-bold text-blue-600">Capai</th>
-                                                    <th className="p-2 font-semibold border-l bg-red-50/50">Target</th><th className="p-2 font-semibold bg-red-50/50">Realisasi</th><th className="p-2 font-bold text-red-600 bg-red-50/50">Capai</th>
-                                                    <th className="p-2 font-semibold border-l bg-orange-50/50">Target</th><th className="p-2 font-semibold bg-orange-50/50">Realisasi</th><th className="p-2 font-bold text-orange-600 bg-orange-50/50">Capai</th>
-                                                    <th className="p-2 font-semibold border-l bg-purple-50/50">Target</th><th className="p-2 font-semibold bg-purple-50/50">Realisasi</th><th className="p-2 font-bold text-purple-600 bg-purple-50/50">Capai</th>
-                                                    <th className="p-2 font-semibold border-l bg-emerald-50/50">Target</th><th className="p-2 font-semibold bg-emerald-50/50">Realisasi</th><th className="p-2 font-bold text-emerald-600 bg-emerald-50/50">Capai</th>
+                                                    <th className="p-2 font-semibold border-l bg-red-50/50">Target</th><th className="p-2 font-semibold bg-red-50/50">Realisasi</th><th className="p-2 font-bold text-red-600 bg-red-50/30">Capai</th>
+                                                    <th className="p-2 font-semibold border-l bg-orange-50/50">Target</th><th className="p-2 font-semibold bg-orange-50/50">Realisasi</th><th className="p-2 font-bold text-orange-600 bg-orange-50/30">Capai</th>
+                                                    <th className="p-2 font-semibold border-l bg-purple-50/50">Target</th><th className="p-2 font-semibold bg-purple-50/50">Realisasi</th><th className="p-2 font-bold text-purple-600 bg-purple-50/30">Capai</th>
+                                                    <th className="p-2 font-semibold border-l bg-emerald-50/50">Target</th><th className="p-2 font-semibold bg-emerald-50/50">Realisasi</th><th className="p-2 font-bold text-emerald-600 bg-emerald-50/30">Capai</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -1530,7 +1592,6 @@
 
                 return (
                     <div className="space-y-8">
-                        {/* 4 Kotak Upload CSV Data Nasabah Berwarna */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-amber-50/70 border border-amber-200 p-6 rounded-3xl shadow-sm relative overflow-hidden">
                                 <div className="flex justify-between mb-4">
@@ -1591,7 +1652,6 @@
 
                         {/* Kelola Master Data: 4 Kolom (Cabang, AO, Admin Mikro, Produk) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {/* KELOLA CABANG */}
                             <div className="bg-rose-50/50 p-6 border border-rose-200 rounded-3xl shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-bold text-rose-900 text-sm"><i className="fas fa-building mr-2 text-rose-600"></i>Kelola Cabang</h3>
@@ -1615,7 +1675,6 @@
                                 </ul>
                             </div>
 
-                            {/* KELOLA AO */}
                             <div className="bg-purple-50/50 p-6 border border-purple-200 rounded-3xl shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-bold text-purple-900 text-sm"><i className="fas fa-user-tie mr-2 text-purple-600"></i>Kelola AO</h3>
@@ -1639,7 +1698,6 @@
                                 </ul>
                             </div>
                             
-                            {/* KELOLA ADMIN MIKRO */}
                             <div className="bg-emerald-50/50 p-6 border border-emerald-200 rounded-3xl shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-bold text-emerald-900 text-sm"><i className="fas fa-user-edit mr-2 text-emerald-600"></i>Kelola Admin Mikro</h3>
@@ -1663,7 +1721,6 @@
                                 </ul>
                             </div>
                             
-                            {/* KELOLA PRODUK */}
                             <div className="bg-sky-50/50 p-6 border border-sky-200 rounded-3xl shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-bold text-sky-900 text-sm"><i className="fas fa-box mr-2 text-sky-600"></i>Kelola Produk</h3>
@@ -1773,7 +1830,7 @@
 
                     <div className={`mobile-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
 
-                    {/* Panel Navigasi Sidebar Sesuai Gambar Referensi */}
+                    {/* Sidebar Navigasi */}
                     <aside className={`sidebar-container ${isSidebarOpen ? 'open' : ''} flex flex-col`}>
                         <div className="p-6 border-b border-slate-100 flex items-center flex-col text-center">
                             <RocketLogo size={70} />
