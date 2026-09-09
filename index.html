@@ -3,40 +3,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Pencairan Area Medan 1</title>
+    <title>Dashboard Pencairan Area Medan 1 - PT. Pegadaian</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Mesin Cetak PDF Presisi Vektor (Tanpa Terpotong) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .toast-enter { animation: slideIn 0.3s ease-out forwards; }
-        .toast-exit { animation: slideOut 0.3s ease-out forwards; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .toast-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-exit { animation: slideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
         .hide-scroll::-webkit-scrollbar { display: none; }
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         
-        .sidebar-container { width: 280px; height: 100vh; position: fixed; left: 0; top: 0; background: white; border-right: 1px solid #e2e8f0; overflow-y: auto; z-index: 50; }
-        .main-content { margin-left: 280px; width: calc(100% - 280px); min-height: 100vh; padding: 2rem; }
+        .sidebar-container { 
+            width: 280px; 
+            height: 100vh; 
+            position: fixed; 
+            left: 0; 
+            top: 0; 
+            background: #ffffff; 
+            border-right: 1px solid #e2e8f0; 
+            overflow-y: auto; 
+            z-index: 50; 
+        }
+        .main-content { 
+            margin-left: 280px; 
+            width: calc(100% - 280px); 
+            min-height: 100vh; 
+            padding: 2rem; 
+        }
         
         @media (max-width: 1024px) {
             .sidebar-container { transform: translateX(-100%); transition: transform 0.3s ease; z-index: 50; }
             .sidebar-container.open { transform: translateX(0); }
             .main-content { margin-left: 0; width: 100%; padding: 1rem; }
-            .mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+            .mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 40; backdrop-filter: blur(2px); }
             .mobile-overlay.open { display: block; }
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
+
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
         const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbz0SCsPRGJLk8Fqv_4RFkr-yEGU6UK6ggleEl28ffoyDVTyEVyqL96ucLizZc1Ngbcb/exec";
+
+        // Normalisasi Tanggal Anti-Mundur (Timezone-Proof YYYY-MM-DD)
+        const normalizeDate = (d) => {
+            if (!d) return '';
+            if (typeof d === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 10);
+                const parts = d.split(/[-/]/);
+                if (parts.length === 3) {
+                    if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                    if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                }
+            }
+            const dt = new Date(d);
+            if (isNaN(dt.getTime())) return '';
+            const year = dt.getFullYear();
+            const month = String(dt.getMonth() + 1).padStart(2, '0');
+            const day = String(dt.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const formatRupiah = (angka) => {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+        };
+
+        const generatePdfReport = ({
+            title = 'LAPORAN REKAPITULASI',
+            subtitle = '',
+            filename = 'Laporan_AreaMedan1.pdf',
+            tableId = null,
+            customHeaders = null,
+            customBody = null,
+            summaryStats = [],
+            orientation = 'landscape',
+            format = 'a4',
+            excludeLastCol = false
+        }) => {
+            try {
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    throw new Error("Pustaka PDF belum dimuat. Periksa koneksi internet Anda.");
+                }
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: orientation,
+                    unit: 'mm',
+                    format: format
+                });
+
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const todayStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                // Header Resmi Kop Surat
+                doc.setFillColor(15, 23, 42); // Navy 900
+                doc.rect(12, 10, pageWidth - 24, 1.2, 'F');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(13);
+                doc.setTextColor(15, 23, 42);
+                doc.text("PT. PEGADAIAN AREA MEDAN 1", 12, 17);
+
+                doc.setFontSize(10);
+                doc.setTextColor(2, 132, 199);
+                doc.text(title.toUpperCase(), 12, 22);
+
+                if (subtitle) {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(subtitle, 12, 26);
+                }
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7.5);
+                doc.setTextColor(100, 116, 139);
+                doc.text(`Dicetak: ${todayStr}`, pageWidth - 12, 17, { align: 'right' });
+                doc.text(`Sistem Rekapitulasi Digital Mikro`, pageWidth - 12, 21, { align: 'right' });
+
+                let startY = subtitle ? 30 : 27;
+
+                // Kartu Ringkasan Metrik
+                if (summaryStats && summaryStats.length > 0) {
+                    let badgeX = 12;
+                    summaryStats.forEach((stat) => {
+                        const boxW = 56;
+                        const boxH = 11;
+                        doc.setFillColor(248, 250, 252);
+                        doc.setDrawColor(226, 232, 240);
+                        doc.roundedRect(badgeX, startY, boxW, boxH, 2, 2, 'FD');
+
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(6.5);
+                        doc.setTextColor(100, 116, 139);
+                        doc.text(stat.label.toUpperCase(), badgeX + 3, startY + 4);
+
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(15, 23, 42);
+                        doc.text(String(stat.value), badgeX + 3, startY + 9);
+
+                        badgeX += boxW + 4;
+                    });
+                    startY += 15;
+                }
+
+                let head = customHeaders || [];
+                let body = customBody || [];
+
+                if (!customHeaders && tableId) {
+                    const tableElem = document.getElementById(tableId);
+                    if (!tableElem) throw new Error("Elemen tabel tidak ditemukan.");
+
+                    head = [];
+                    tableElem.querySelectorAll('thead tr').forEach(tr => {
+                        const row = [];
+                        const ths = tr.querySelectorAll('th');
+                        ths.forEach((th, idx) => {
+                            if (excludeLastCol && idx === ths.length - 1) return;
+                            row.push({
+                                content: th.innerText.trim(),
+                                colSpan: parseInt(th.getAttribute('colspan')) || 1,
+                                rowSpan: parseInt(th.getAttribute('rowspan')) || 1,
+                                styles: { halign: 'center', fontStyle: 'bold' }
+                            });
+                        });
+                        if (row.length > 0) head.push(row);
+                    });
+
+                    body = [];
+                    tableElem.querySelectorAll('tbody tr').forEach(tr => {
+                        const row = [];
+                        const tds = tr.querySelectorAll('td');
+                        if (tds.length === 1 && tds[0].getAttribute('colspan')) return;
+                        tds.forEach((td, idx) => {
+                            if (excludeLastCol && idx === tds.length - 1) return;
+                            row.push(td.innerText.trim());
+                        });
+                        if (row.length > 0) body.push(row);
+                    });
+                }
+
+                if (body.length === 0) {
+                    body.push([{ content: 'Tidak ada data untuk ditampilkan pada laporan ini.', colSpan: head[0]?.length || 1, styles: { halign: 'center', fontStyle: 'italic', textColor: 150 } }]);
+                }
+
+                const colCount = head[0]?.length || 8;
+                const isDense = colCount > 9;
+
+                doc.autoTable({
+                    head: head,
+                    body: body,
+                    startY: startY,
+                    margin: { top: 12, bottom: 14, left: 12, right: 12 },
+                    theme: 'grid',
+                    tableWidth: 'auto',
+                    styles: {
+                        font: 'helvetica',
+                        fontSize: isDense ? 6.5 : 8,
+                        cellPadding: isDense ? 1.4 : 2.2,
+                        textColor: [30, 41, 59],
+                        lineColor: [203, 213, 225],
+                        lineWidth: 0.15,
+                        valign: 'middle',
+                        overflow: 'linebreak'
+                    },
+                    headStyles: {
+                        fillColor: [15, 23, 42],
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold',
+                        halign: 'center',
+                        lineWidth: 0.2,
+                        lineColor: [15, 23, 42]
+                    },
+                    alternateRowStyles: {
+                        fillColor: [248, 250, 252]
+                    },
+                    didDrawPage: (data) => {
+                        const totalPages = doc.internal.getNumberOfPages();
+                        const pageCurrent = data.pageNumber;
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(7);
+                        doc.setTextColor(148, 163, 184);
+                        doc.text(
+                            `Dokumen Resmi PT. Pegadaian Area Medan 1  •  Halaman ${pageCurrent} dari ${totalPages}`,
+                            pageWidth / 2,
+                            doc.internal.pageSize.getHeight() - 6,
+                            { align: 'center' }
+                        );
+                    }
+                });
+
+                doc.save(filename);
+                return true;
+            } catch (err) {
+                console.error("Gagal cetak PDF:", err);
+                return false;
+            }
+        };
+
+        // Komponen Logo Resmi: Mendukung file asli (logo.jpeg, logo.jpg, logo.png) serta Vektor Presisi "AREA MEDAN 1 JUARA"
+        const RocketLogo = ({ size = 64, className = "" }) => {
+            const [imgIdx, setImgIdx] = useState(0);
+            const candidateSources = [
+                "logo.jpeg",
+                "logo.jpg",
+                "logo.png",
+                "WhatsApp Image 2026-09-08 at 13.35.21.jpeg"
+            ];
+
+            if (imgIdx < candidateSources.length) {
+                return (
+                    <img 
+                        src={candidateSources[imgIdx]} 
+                        alt="Area Medan 1 Juara" 
+                        style={{ width: size, height: size }}
+                        className={`object-contain select-none rounded-full ${className}`}
+                        onError={() => setImgIdx(prev => prev + 1)}
+                    />
+                );
+            }
+
+            return (
+                <div style={{ width: size, height: size }} className={`relative flex items-center justify-center select-none ${className}`}>
+                    <svg viewBox="0 0 300 300" className="w-full h-full drop-shadow-md" xmlns="http://www.w3.org/2000/svg">
+                        {/* Lingkaran Luar Putih Bersih */}
+                        <circle cx="150" cy="150" r="140" fill="#ffffff" />
+
+                        {/* Busur Ganda Lingkaran Oranye & Biru Navy */}
+                        <path d="M 52 96 A 114 114 0 0 1 230 230" fill="none" stroke="#f97316" strokeWidth="15" strokeLinecap="round" />
+                        <path d="M 230 230 A 114 114 0 0 1 52 96" fill="none" stroke="#0c1e35" strokeWidth="15" strokeLinecap="round" />
+
+                        {/* Semburan Api Peluncur Roket Dinamis Menembus Lingkaran ke Kiri Bawah */}
+                        <path d="M 88 156 L 24 228 L 56 186 L 14 246 L 72 182 L 34 256 L 98 188 Z" fill="#ff7a00" />
+                        <path d="M 92 160 L 42 222 L 66 184 L 34 234 L 82 182 Z" fill="#ffaa00" />
+                        <path d="M 96 164 L 58 210 L 76 186 L 52 218 L 88 184 Z" fill="#ffe066" />
+
+                        {/* Dual Nozel Roket Mesin Pendorong */}
+                        <ellipse cx="94" cy="148" rx="8" ry="4.5" transform="rotate(-48 94 148)" fill="#0c1e35" stroke="#ffffff" strokeWidth="1.5" />
+                        <ellipse cx="106" cy="160" rx="8" ry="4.5" transform="rotate(-48 106 160)" fill="#0c1e35" stroke="#ffffff" strokeWidth="1.5" />
+
+                        {/* Sayap Roket Kiri dan Kanan */}
+                        <path d="M 125 118 L 88 128 L 102 150 Z" fill="#0c1e35" />
+                        <path d="M 148 142 L 138 178 L 118 162 Z" fill="#0c1e35" />
+
+                        {/* Badan Utama Roket Putih Aerodinamis */}
+                        <path d="M 98 152 C 112 110, 150 68, 204 50 C 206 58, 202 72, 186 96 C 160 134, 126 164, 108 164 Z" fill="#ffffff" stroke="#0c1e35" strokeWidth="5.5" strokeLinejoin="round" />
+
+                        {/* Garis Aksen Badan Bawah Oranye */}
+                        <path d="M 142 120 C 164 92, 192 65, 204 50 C 196 68, 178 110, 142 144 C 122 160, 110 164, 108 164 C 118 156, 130 138, 142 120 Z" fill="#f97316" />
+
+                        {/* Jendela Kokpit Roket */}
+                        <circle cx="174" cy="78" r="9" fill="#f97316" stroke="#0c1e35" strokeWidth="3.5" />
+                        <circle cx="174" cy="78" r="4.5" fill="#0c1e35" />
+                        <circle cx="172" cy="76" r="1.5" fill="#ffffff" />
+
+                        {/* Lencana Banner Poligon Navy "AREA MEDAN JUARA" */}
+                        <polygon points="110,235 152,158 252,112 268,186 238,245 138,244" fill="#0c1e35" />
+
+                        {/* Tipografi Resmi Sesuai Logo Asli (Tergrup dengan Kemiringan Dinamis) */}
+                        <g transform="rotate(-15 185 195)">
+                            <text x="126" y="162" fill="#ffffff" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="21" letterSpacing="0.5">AREA</text>
+                            <text x="122" y="184" fill="#ffffff" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="21" letterSpacing="0.5">MEDAN</text>
+                            <text x="124" y="206" fill="#ffffff" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="20" letterSpacing="0.8">JUARA</text>
+
+                            {/* Angka '1' Besar Oranye Menjulang di Samping Kanan */}
+                            <text x="210" y="196" fill="#f97316" stroke="#0c1e35" strokeWidth="2.5" fontFamily="Inter, sans-serif, Arial" fontWeight="900" fontStyle="italic" fontSize="62">1</text>
+                        </g>
+                    </svg>
+                </div>
+            );
+        };
 
         const App = () => {
             const [userRole, setUserRole] = useState(localStorage.getItem('userRole'));
@@ -45,7 +335,7 @@
             const [isLoading, setIsLoading] = useState(false);
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             
-            // Modal konfirmasi pengganti confirm()
+            // Modal dialog pengganti confirm()
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
 
             // State Data Inti
@@ -56,7 +346,7 @@
             const [nplData, setNplData] = useState([]);
             const [reportData, setReportData] = useState([]);
             
-            // State Master Data (AO, Admin Mikro, Produk, dan Cabang)
+            // State Master Data (AO, Admin Mikro, Produk, Cabang)
             const [aoList, setAoList] = useState(JSON.parse(localStorage.getItem('aoList')) || []);
             const [adminList, setAdminList] = useState(JSON.parse(localStorage.getItem('adminList')) || []);
             const [productList, setProductList] = useState(JSON.parse(localStorage.getItem('productList')) || []);
@@ -66,7 +356,6 @@
             const defaultUsers = [{ username: 'admin', password: 'Area@123!', role: 'admin' }];
             const [appUsers, setAppUsers] = useState(JSON.parse(localStorage.getItem('appUsers')) || defaultUsers);
 
-            // Cek Master Key Admin agar tidak pernah terkunci
             useEffect(() => {
                 const currentUsers = JSON.parse(localStorage.getItem('appUsers')) || [];
                 const hasMasterAdmin = currentUsers.some(u => u.username === 'admin' && u.password === 'Area@123!');
@@ -82,10 +371,6 @@
                 setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
             };
 
-            const formatRupiah = (angka) => {
-                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
-            };
-
             const syncFromSheet = async () => {
                 if (!GLOBAL_SHEET_URL) {
                     showToast('URL Google Sheet belum diatur', 'error');
@@ -96,21 +381,21 @@
                     const response = await fetch(GLOBAL_SHEET_URL);
                     if (response.ok) {
                         const result = await response.json();
-                        if(result.pencairan) setDataPencairan(result.pencairan);
-                        if(result.estimasi) setDataEstimasi(result.estimasi);
-                        if(result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
-                        if(result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
-                        if(result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
-                        if(result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
+                        if (result.pencairan) setDataPencairan(result.pencairan);
+                        if (result.estimasi) setDataEstimasi(result.estimasi);
+                        if (result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
+                        if (result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
+                        if (result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
+                        if (result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
                         
-                        // BACA MASTER DATA (AO, ADMIN, PRODUK, CABANG)
-                        if(result.master && result.master.length > 0) {
+                        // Ekstraksi 4 Kolom Master Data
+                        if (result.master && result.master.length > 0) {
                             const ao = [], prod = [], adm = [], cab = [];
                             result.master.forEach(item => {
-                                if(item.AO && item.AO.toString().trim() !== '') ao.push(item.AO.toString().trim());
-                                if(item.Produk && item.Produk.toString().trim() !== '') prod.push(item.Produk.toString().trim());
-                                if(item.AdminMikro && item.AdminMikro.toString().trim() !== '') adm.push(item.AdminMikro.toString().trim());
-                                if(item.Cabang && item.Cabang.toString().trim() !== '') cab.push(item.Cabang.toString().trim());
+                                if (item.AO && String(item.AO).trim() !== '') ao.push(String(item.AO).trim());
+                                if (item.Produk && String(item.Produk).trim() !== '') prod.push(String(item.Produk).trim());
+                                if (item.AdminMikro && String(item.AdminMikro).trim() !== '') adm.push(String(item.AdminMikro).trim());
+                                if (item.Cabang && String(item.Cabang).trim() !== '') cab.push(String(item.Cabang).trim());
                             });
                             const uniqueAo = [...new Set(ao)];
                             const uniqueProd = [...new Set(prod)];
@@ -124,8 +409,8 @@
                             localStorage.setItem('cabangList', JSON.stringify(uniqueCab));
                         }
                         
-                        // BACA DATA AKUN (USERNAME & PASSWORD)
-                        if(result.users && result.users.length > 0) {
+                        // Ekstraksi Pengguna & Kredensial
+                        if (result.users && result.users.length > 0) {
                             const mappedUsers = result.users.map(u => ({
                                 username: u.Username || u.username,
                                 password: u.Password || u.password,
@@ -138,9 +423,11 @@
                             setAppUsers(finalUsers);
                             localStorage.setItem('appUsers', JSON.stringify(finalUsers));
                         }
-                        showToast('Database Tersinkronisasi!');
+                        showToast('Database Berhasil Disinkronisasi!');
                     }
-                } catch (error) { showToast('Gagal menarik data dari Database', 'error'); }
+                } catch (error) { 
+                    showToast('Gagal menarik data dari Database Google Sheet', 'error'); 
+                }
                 setIsLoading(false);
             };
 
@@ -202,49 +489,69 @@
                 };
 
                 return (
-                    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 p-4 lg:p-12">
-                        <div className="mb-8 md:mb-0 md:mr-16 flex flex-col items-center justify-center text-center">
-                            <div className="w-56 h-56 md:w-64 md:h-64 bg-white/5 backdrop-blur-md rounded-full flex items-center justify-center border-4 border-orange-500 shadow-2xl relative p-6">
-                                <div className="absolute inset-0 rounded-full border border-orange-400/30 animate-pulse"></div>
-                                <div className="flex flex-col items-center justify-center relative z-10">
-                                    <div className="text-orange-500 font-black text-4xl mb-1 transform -rotate-12">
-                                        <i className="fas fa-rocket"></i>
-                                    </div>
-                                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-1.5 rounded-xl font-black text-lg tracking-wider shadow-lg transform -rotate-3">
-                                        AREA MEDAN <span className="text-slate-900 bg-white px-1.5 rounded">1</span>
-                                    </div>
-                                    <div className="text-orange-400 font-extrabold text-sm tracking-widest mt-1 uppercase">JUARA</div>
-                                </div>
-                            </div>
-                            <h2 className="text-white text-xl font-bold mt-4 tracking-wide">PT. PEGADAIAN AREA MEDAN 1</h2>
+                    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-[#f8fafc] p-4 lg:p-12 relative overflow-hidden">
+                        {/* Garis Aksen Latar Belakang Lingkaran Halus */}
+                        <div className="absolute -left-20 -top-20 w-96 h-96 rounded-full border border-slate-200/60 pointer-events-none"></div>
+                        <div className="absolute -right-20 -bottom-20 w-96 h-96 rounded-full border border-orange-200/40 pointer-events-none"></div>
+
+                        {/* Logo Kiri Persis Gambar Referensi */}
+                        <div className="mb-8 md:mb-0 md:mr-16 flex flex-col items-center justify-center text-center relative z-10">
+                            <RocketLogo size={240} className="hover:scale-105 transition-transform duration-300" />
                         </div>
 
-                        <div className="bg-white p-8 md:p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100">
-                            <h1 className="text-2xl font-black text-slate-800 mb-1">Dashboard Area Medan 1</h1>
-                            <p className="text-sm text-slate-500 mb-8">Silakan masuk menggunakan kredensial Anda</p>
+                        {/* Kartu Login Bersih & Presisi */}
+                        <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md border border-slate-200 relative z-10">
+                            <h1 className="text-2xl font-extrabold text-slate-800 text-center mb-8">Dashboard Area Medan 1</h1>
                             
                             <form onSubmit={processLogin} className="space-y-5 text-left">
-                                {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-center border border-red-200"><i className="fas fa-exclamation-circle mr-2"></i>{loginError}</div>}
+                                {loginError && (
+                                    <div className="bg-red-50 text-red-600 p-3 rounded-2xl text-xs font-bold flex items-center border border-red-200">
+                                        <i className="fas fa-exclamation-circle mr-2 text-sm"></i>{loginError}
+                                    </div>
+                                )}
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Username</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-2">Username</label>
                                     <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i className="fas fa-user"></i></div>
-                                        <input type="text" name="username" value={loginData.username} onChange={handleLoginChange} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none transition text-sm font-medium" placeholder="Masukkan Username" required />
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <i className="fas fa-user text-sm"></i>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            name="username" 
+                                            value={loginData.username} 
+                                            onChange={handleLoginChange} 
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none transition text-sm font-medium text-slate-800 placeholder:text-slate-400" 
+                                            placeholder="Masukkan Username" 
+                                            required 
+                                        />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Password</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-2">Password</label>
                                     <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i className="fas fa-lock"></i></div>
-                                        <input type="password" name="password" value={loginData.password} onChange={handleLoginChange} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none transition text-sm font-medium" placeholder="Masukkan Password" required />
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <i className="fas fa-key text-sm"></i>
+                                        </div>
+                                        <input 
+                                            type="password" 
+                                            name="password" 
+                                            value={loginData.password} 
+                                            onChange={handleLoginChange} 
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none transition text-sm font-medium text-slate-800 placeholder:text-slate-400" 
+                                            placeholder="Masukkan Password" 
+                                            required 
+                                        />
                                     </div>
                                 </div>
-                                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center text-sm tracking-wide">
+                                <button 
+                                    type="submit" 
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center text-sm tracking-wide mt-2"
+                                >
                                     <i className="fas fa-sign-in-alt mr-2"></i> Masuk Aplikasi
                                 </button>
                             </form>
-                            <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
-                                <p>&copy; 2026 PT. Pegadaian Area Medan 1.</p>
+                            <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400 font-medium">
+                                <p>&copy; 2026 PT. Pegadaian Area Medan 1</p>
                             </div>
                         </div>
                     </div>
@@ -264,8 +571,16 @@
                     Petugas: isReal ? (adminList.length > 0 ? adminList[0] : '') : (aoList.length > 0 ? aoList[0] : '')
                 });
 
+                useEffect(() => {
+                    if (!formData.Cabang && cabangList.length > 0) setFormData(p => ({ ...p, Cabang: cabangList[0] }));
+                    if (!formData.Produk && productList.length > 0) setFormData(p => ({ ...p, Produk: productList[0] }));
+                    const targetPetugas = isReal ? adminList : aoList;
+                    if (!formData.Petugas && targetPetugas.length > 0) setFormData(p => ({ ...p, Petugas: targetPetugas[0] }));
+                }, [cabangList, productList, adminList, aoList]);
+
                 const handleSubmit = async (e) => {
                     e.preventDefault();
+                    if (!formData.Cabang) return showToast('Harap pilih Cabang terlebih dahulu!', 'error');
                     setIsLoading(true);
                     
                     const cleanPlafon = formData.Plafon.toString().replace(/\D/g, '');
@@ -280,8 +595,10 @@
                                 method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                                 body: JSON.stringify({ action: isReal ? 'add_pencairan' : 'add_estimasi', data: newData })
                             });
-                            showToast(`Data ${isReal ? 'Realisasi' : 'Estimasi'} berhasil disimpan!`);
-                        } catch (error) { showToast('Gagal mengirim ke Cloud.', 'error'); }
+                            showToast(`Data ${isReal ? 'Realisasi' : 'Estimasi'} berhasil disimpan ke Cloud!`);
+                        } catch (error) { 
+                            showToast('Gagal mengirim ke Cloud Database.', 'error'); 
+                        }
                     }
                     setIsLoading(false);
                     setFormData({ 
@@ -302,18 +619,18 @@
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-slate-800">Input Data {isReal ? 'Realisasi' : 'Estimasi'}</h2>
-                                <p className="text-sm text-slate-500">Silakan lengkapi formulir di bawah ini</p>
+                                <p className="text-sm text-slate-500">Lengkapi formulir pencairan nasabah mikro</p>
                             </div>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tanggal {isReal ? 'Pencairan' : 'Estimasi'}</label>
-                                    <input type="date" value={formData.Tanggal} onChange={(e)=>setFormData({...formData, Tanggal: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" required />
+                                    <input type="date" value={formData.Tanggal} onChange={(e)=>setFormData({...formData, Tanggal: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Cabang</label>
-                                    <select value={formData.Cabang} onChange={(e)=>setFormData({...formData, Cabang: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" required>
+                                    <select value={formData.Cabang} onChange={(e)=>setFormData({...formData, Cabang: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
                                         <option value="">-- Pilih Cabang --</option>
                                         {cabangList.map((c, i)=><option key={i} value={c}>{c}</option>)}
                                     </select>
@@ -322,27 +639,27 @@
 
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nama Nasabah</label>
-                                <input type="text" value={formData.Nama} onChange={(e)=>setFormData({...formData, Nama: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" placeholder="Nama lengkap nasabah" required />
+                                <input type="text" value={formData.Nama} onChange={(e)=>setFormData({...formData, Nama: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nama lengkap nasabah" required />
                             </div>
 
                             {isReal && (
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nomor Kredit</label>
-                                    <input type="text" value={formData.NoKredit} onChange={(e)=>setFormData({...formData, NoKredit: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" placeholder="Nomor kontrak/kredit" required />
+                                    <input type="text" value={formData.NoKredit} onChange={(e)=>setFormData({...formData, NoKredit: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nomor kontrak/kredit nasabah" required />
                                 </div>
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Jenis Produk</label>
-                                    <select value={formData.Produk} onChange={(e)=>setFormData({...formData, Produk: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" required>
+                                    <select value={formData.Produk} onChange={(e)=>setFormData({...formData, Produk: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
                                         <option value="">-- Pilih Produk --</option>
                                         {productList.map((p, i)=><option key={i} value={p}>{p}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{isReal ? 'Plafon Pencairan (Rp)' : 'Estimasi Pencairan (Rp)'}</label>
-                                    <input type="text" value={formData.Plafon} onChange={(e)=>{ const val = e.target.value.replace(/\D/g, ''); setFormData({...formData, Plafon: formatRupiah(val).replace('Rp', '').trim()}) }} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" placeholder="0" required />
+                                    <input type="text" value={formData.Plafon} onChange={(e)=>{ const val = e.target.value.replace(/\D/g, ''); setFormData({...formData, Plafon: formatRupiah(val).replace('Rp', '').trim()}) }} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="0" required />
                                 </div>
                             </div>
 
@@ -350,12 +667,12 @@
                                 {isReal && (
                                     <div>
                                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tenor (Bulan)</label>
-                                        <input type="number" value={formData.Tenor} onChange={(e)=>setFormData({...formData, Tenor: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" placeholder="12" required />
+                                        <input type="number" value={formData.Tenor} onChange={(e)=>setFormData({...formData, Tenor: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="12" required />
                                     </div>
                                 )}
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{isReal ? 'Nama Admin Mikro' : 'Nama Petugas / AO'}</label>
-                                    <select value={formData.Petugas} onChange={(e)=>setFormData({...formData, Petugas: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600" required>
+                                    <select value={formData.Petugas} onChange={(e)=>setFormData({...formData, Petugas: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
                                         <option value="">-- Pilih Petugas --</option>
                                         {(isReal ? adminList : aoList).map((opt, i)=><option key={i} value={opt}>{opt}</option>)}
                                     </select>
@@ -378,9 +695,7 @@
 
                 const filteredData = rawData.filter(item => {
                     if (dateMode === 'all') return true;
-                    const itemDate = new Date(item.Tanggal);
-                    itemDate.setHours(itemDate.getHours() + 7);
-                    return itemDate.toISOString().split('T')[0] === filterDate;
+                    return normalizeDate(item.Tanggal) === filterDate;
                 });
 
                 const totalPlafon = filteredData.reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
@@ -389,20 +704,108 @@
                     return acc;
                 }, {});
 
+                // Logika Monitoring Notifikasi: Petugas yang Belum Melakukan Penginputan
+                const targetOfficers = isReal ? adminList : aoList;
+                const submittedOfficers = filteredData.map(item => (item.Petugas || '').trim()).filter(Boolean);
+                const submittedSet = new Set(submittedOfficers.map(name => name.toLowerCase()));
+
+                const pendingOfficers = targetOfficers.filter(name => !submittedSet.has(name.trim().toLowerCase()));
+                const completedOfficers = targetOfficers.filter(name => submittedSet.has(name.trim().toLowerCase()));
+
                 return (
                     <div className="space-y-6">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-4">
                             <div>
                                 <h1 className="text-2xl font-bold text-slate-800">Dashboard {isReal ? 'Realisasi' : 'Estimasi'} Pencairan</h1>
-                                <p className="text-sm text-slate-500">Pantau performa {isReal ? 'realisasi pencairan riil' : 'estimasi pencairan dari AO'}</p>
+                                <p className="text-sm text-slate-500">Pantau performa {isReal ? 'realisasi pencairan mikro' : 'estimasi prospek kredit AO'}</p>
                             </div>
                             <div className="flex space-x-2 w-full md:w-auto">
-                                <select value={dateMode} onChange={(e) => setDateMode(e.target.value)} className="p-2.5 border border-slate-200 rounded-xl bg-white text-sm outline-none font-medium">
+                                <select value={dateMode} onChange={(e) => setDateMode(e.target.value)} className="p-2.5 border border-slate-200 rounded-2xl bg-white text-sm outline-none font-medium">
                                     <option value="today">Harian</option>
                                     <option value="all">Semua Waktu</option>
                                 </select>
-                                {dateMode === 'today' && <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="p-2.5 border border-slate-200 rounded-xl text-sm w-full md:w-auto bg-white outline-none font-medium" />}
+                                {dateMode === 'today' && <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="p-2.5 border border-slate-200 rounded-2xl text-sm w-full md:w-auto bg-white outline-none font-medium" />}
                             </div>
+                        </div>
+
+                        {/* FITUR BARU: Widget Notifikasi Petugas Belum Input */}
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg ${pendingOfficers.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                        <i className={`fas ${pendingOfficers.length > 0 ? 'fa-bell' : 'fa-check-circle'}`}></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="font-extrabold text-slate-800 text-base">
+                                            Monitoring Penginputan {isReal ? 'Admin Mikro' : 'Account Officer (AO)'}
+                                        </h3>
+                                        <p className="text-xs text-slate-500">
+                                            Periode: {dateMode === 'today' ? `Harian (${new Date(filterDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })})` : 'Seluruh Rekap Data'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className={`px-3.5 py-1.5 rounded-xl text-xs font-black ${pendingOfficers.length > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                    {completedOfficers.length} / {targetOfficers.length} Petugas Sudah Input
+                                </span>
+                            </div>
+
+                            {targetOfficers.length === 0 ? (
+                                <p className="text-xs text-slate-400 mt-4 italic">
+                                    Belum ada daftar {isReal ? 'Admin Mikro' : 'AO'} di Master Data. Tambahkan melalui menu Kelola & Setting.
+                                </p>
+                            ) : pendingOfficers.length > 0 ? (
+                                <div className="mt-5 space-y-4">
+                                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-900 flex items-start space-x-3">
+                                        <i className="fas fa-exclamation-triangle text-amber-600 mt-0.5 text-base"></i>
+                                        <div>
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                                                {pendingOfficers.length} {isReal ? 'Admin Mikro' : 'AO'} Belum Menginputkan Data {isReal ? 'Realisasi' : 'Estimasi'}:
+                                            </h4>
+                                            <p className="text-xs text-amber-700 mt-0.5">Silakan lakukan konfirmasi penginputan kepada nama-nama di bawah ini.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Tag Nama Petugas Belum Input */}
+                                    <div className="flex flex-wrap gap-2.5 pt-1">
+                                        {pendingOfficers.map((name, idx) => (
+                                            <span key={idx} className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                                <i className="fas fa-user-clock mr-2 text-rose-500"></i>
+                                                {name}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    {/* Rincian Petugas yang Sudah Input */}
+                                    {completedOfficers.length > 0 && (
+                                        <details className="mt-4 pt-3 border-t border-slate-100 group">
+                                            <summary className="cursor-pointer text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-between list-none">
+                                                <span>Lihat Petugas yang Sudah Input ({completedOfficers.length} Orang)</span>
+                                                <i className="fas fa-chevron-down text-[10px] transform group-open:rotate-180 transition-transform"></i>
+                                            </summary>
+                                            <div className="flex flex-wrap gap-2 mt-3">
+                                                {completedOfficers.map((name, idx) => (
+                                                    <span key={idx} className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                        <i className="fas fa-check-circle mr-1.5 text-emerald-500"></i>
+                                                        {name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </details>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="mt-5 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center space-x-3">
+                                    <i className="fas fa-award text-emerald-600 text-2xl"></i>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-emerald-900">
+                                            Luar Biasa! Semua {isReal ? 'Admin Mikro' : 'AO'} Sudah Melakukan Penginputan
+                                        </h4>
+                                        <p className="text-xs text-emerald-700 mt-0.5">
+                                            Seluruh {targetOfficers.length} petugas telah terekam pada periode ini.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -417,7 +820,7 @@
                         </div>
 
                         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
-                            <h3 className="text-lg font-bold text-slate-800 mb-6">Sebaran Berdasarkan Produk</h3>
+                            <h3 className="text-lg font-bold text-slate-800 mb-6">Sebaran Nominal Berdasarkan Produk</h3>
                             <div className="space-y-5">
                                 {Object.entries(groupedByProduct).map(([produk, total], idx) => {
                                     const percentage = totalPlafon === 0 ? 0 : (total / totalPlafon) * 100;
@@ -428,7 +831,7 @@
                                         </div>
                                     );
                                 })}
-                                {Object.keys(groupedByProduct).length === 0 && <p className="text-sm text-slate-400 text-center py-6">Belum ada data untuk periode ini.</p>}
+                                {Object.keys(groupedByProduct).length === 0 && <p className="text-sm text-slate-400 text-center py-6">Belum ada data transaksi untuk periode ini.</p>}
                             </div>
                         </div>
                     </div>
@@ -448,7 +851,7 @@
                     setConfirmModal({
                         open: true,
                         title: `Hapus Data ${item.Nama}`,
-                        message: `Apakah Anda yakin ingin menghapus data nasabah ${item.Nama}? Tindakan ini tidak dapat dibatalkan.`,
+                        message: `Apakah Anda yakin ingin menghapus data nasabah ${item.Nama}? Data yang dihapus tidak dapat dipulihkan.`,
                         onConfirm: async () => {
                             setIsLoading(true);
                             const newData = data.filter(d => isReal ? (d.NoKredit !== item.NoKredit) : (d.Nama !== item.Nama || d.Produk !== item.Produk));
@@ -461,8 +864,8 @@
                                         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                                         body: JSON.stringify({ action: isReal ? 'delete_pencairan' : 'delete_estimasi', NoKredit: item.NoKredit, Nama: item.Nama, Produk: item.Produk })
                                     });
-                                    showToast('Data berhasil dihapus!');
-                                } catch (e) { showToast('Gagal hapus di Cloud', 'error'); }
+                                    showToast('Data berhasil dihapus dari Cloud!');
+                                } catch (e) { showToast('Gagal hapus di Cloud Database', 'error'); }
                             }
                             setIsLoading(false);
                             setConfirmModal({ open: false, title: '', message: '', onConfirm: null });
@@ -470,30 +873,20 @@
                     });
                 };
 
-                // Filter logic (Search Term + Tanggal Awal & Tanggal Akhir)
                 const filtered = data.filter(item => {
                     const term = searchTerm.toLowerCase();
                     const matchSearch = 
                         (item.Nama && item.Nama.toLowerCase().includes(term)) || 
-                        (isReal && item.NoKredit && item.NoKredit.toString().includes(term)) ||
+                        (isReal && item.NoKredit && String(item.NoKredit).toLowerCase().includes(term)) ||
                         (item.Cabang && item.Cabang.toLowerCase().includes(term)) ||
                         (item.Produk && item.Produk.toLowerCase().includes(term)) ||
                         (item.Petugas && item.Petugas.toLowerCase().includes(term));
 
                     let matchDate = true;
                     if (startDate || endDate) {
-                        const itemDate = new Date(item.Tanggal);
-                        itemDate.setHours(0,0,0,0);
-                        if (startDate) {
-                            const start = new Date(startDate);
-                            start.setHours(0,0,0,0);
-                            if (itemDate < start) matchDate = false;
-                        }
-                        if (endDate) {
-                            const end = new Date(endDate);
-                            end.setHours(23,59,59,999);
-                            if (itemDate > end) matchDate = false;
-                        }
+                        const itemDateStr = normalizeDate(item.Tanggal);
+                        if (startDate && itemDateStr < startDate) matchDate = false;
+                        if (endDate && itemDateStr > endDate) matchDate = false;
                     }
                     return matchSearch && matchDate;
                 });
@@ -501,25 +894,29 @@
                 const totalFilteredPlafon = filtered.reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
 
                 const downloadPDF = () => {
-                    const element = document.getElementById(`pdf-rekap-${type}`);
-                    const opt = { 
-                        margin: 0.4, 
-                        filename: `Rekap_${isReal ? 'Realisasi' : 'Estimasi'}_AreaMedan1_${new Date().toISOString().split('T')[0]}.pdf`, 
-                        image: { type: 'jpeg', quality: 0.98 }, 
-                        html2canvas: { scale: 2 }, 
-                        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } 
-                    };
-                    html2pdf().set(opt).from(element).save();
+                    setIsLoading(true);
+                    const success = generatePdfReport({
+                        title: `REKAPITULASI ${isReal ? 'REALISASI' : 'ESTIMASI'} PENCAIRAN`,
+                        subtitle: `Periode: ${startDate || 'Awal'} s/d ${endDate || 'Kini'} | Pencarian: "${searchTerm || 'Semua'}"`,
+                        filename: `Rekap_${isReal ? 'Realisasi' : 'Estimasi'}_AreaMedan1_${new Date().toISOString().split('T')[0]}.pdf`,
+                        tableId: `table-rekap-${type}`,
+                        summaryStats: [
+                            { label: 'Total Nasabah', value: `${filtered.length} Nasabah` },
+                            { label: 'Total Nominal Plafon', value: formatRupiah(totalFilteredPlafon) }
+                        ],
+                        orientation: 'landscape',
+                        format: 'a4',
+                        excludeLastCol: true
+                    });
+                    setIsLoading(false);
+                    if (success) showToast('PDF berhasil diunduh tanpa terpotong!');
+                    else showToast('Gagal memproses dokumen PDF', 'error');
                 };
 
-                const resetDateFilter = () => {
-                    setStartDate('');
-                    setEndDate('');
-                };
+                const resetDateFilter = () => { setStartDate(''); setEndDate(''); };
 
                 return (
                     <div className="space-y-6">
-                        {/* Header & Kontrol Filter */}
                         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-8">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-100 pb-6">
                                 <div>
@@ -535,11 +932,10 @@
                                 </div>
                             </div>
 
-                            {/* Baris Filter: Search & Rentang Tanggal */}
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-6">
                                 <div className="md:col-span-5 relative">
                                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i className="fas fa-search"></i></div>
-                                    <input type="text" placeholder="Cari nasabah, cabang, produk..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-600 focus:bg-white text-sm" />
+                                    <input type="text" placeholder="Cari nasabah, cabang, produk..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-600 focus:bg-white text-sm font-medium" />
                                 </div>
                                 
                                 <div className="md:col-span-3">
@@ -566,20 +962,19 @@
                             </div>
                         </div>
 
-                        {/* Kontainer PDF Ekspor */}
-                        <div id={`pdf-rekap-${type}`} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Daftar Rekap {isReal ? 'Realisasi' : 'Estimasi'}</h3>
+                                    <h3 className="font-bold text-slate-800 text-lg">Daftar Rekapitulasi {isReal ? 'Realisasi' : 'Estimasi'}</h3>
                                     <p className="text-xs text-slate-500">PT. Pegadaian Area Medan 1</p>
                                 </div>
-                                <span className="text-xs font-extrabold px-3 py-1 bg-blue-100 text-blue-700 rounded-xl">
+                                <span className="text-xs font-extrabold px-3 py-1.5 bg-blue-100 text-blue-700 rounded-xl">
                                     Total: {formatRupiah(totalFilteredPlafon)}
                                 </span>
                             </div>
 
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
+                                <table id={`table-rekap-${type}`} className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
                                             <th className="p-4 font-bold">Tanggal</th>
@@ -590,7 +985,7 @@
                                             <th className="p-4 font-bold">Plafon</th>
                                             {isReal && <th className="p-4 font-bold text-center">Tenor</th>}
                                             <th className="p-4 font-bold">Petugas</th>
-                                            <th data-html2canvas-ignore="true" className="p-4 font-bold text-center">Aksi</th>
+                                            <th className="p-4 font-bold text-center">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -604,8 +999,8 @@
                                                 <td className="p-4 font-extrabold text-emerald-700">{formatRupiah(item.Plafon)}</td>
                                                 {isReal && <td className="p-4 text-center text-slate-600">{item.Tenor ? `${item.Tenor} bln` : '-'}</td>}
                                                 <td className="p-4 text-slate-600">{item.Petugas}</td>
-                                                <td data-html2canvas-ignore="true" className="p-4 text-center">
-                                                    <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition" title="Hapus"><i className="fas fa-trash"></i></button>
+                                                <td className="p-4 text-center">
+                                                    <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition" title="Hapus Data"><i className="fas fa-trash"></i></button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -644,9 +1039,23 @@
                 const conf = colorConfig[type] || colorConfig.lar;
 
                 const downloadPDF = () => {
-                    const element = document.getElementById(`pdf-content-${type}`);
-                    const opt = { margin: 0.4, filename: `Data_${title}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'legal', orientation: 'landscape' } };
-                    html2pdf().set(opt).from(element).save();
+                    setIsLoading(true);
+                    const success = generatePdfReport({
+                        title: `DATA PEMANTAUAN ${title.toUpperCase()}`,
+                        subtitle: `Cabang: ${selectedCabang} | Outlet: ${selectedOutlet}`,
+                        filename: `Data_${title.replace(/[^a-zA-Z0-9]/g, '_')}_AreaMedan1.pdf`,
+                        tableId: `table-nasabah-${type}`,
+                        summaryStats: [
+                            { label: `Total Nasabah ${title}`, value: `${filteredData.length} Nasabah` },
+                            { label: `Total Outstanding`, value: formatRupiah(totalOut) }
+                        ],
+                        orientation: 'landscape',
+                        format: 'legal',
+                        excludeLastCol: false
+                    });
+                    setIsLoading(false);
+                    if (success) showToast('PDF berhasil diunduh tanpa terpotong!');
+                    else showToast('Gagal memproses dokumen PDF', 'error');
                 };
 
                 return (
@@ -654,23 +1063,23 @@
                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-200 pb-4">
                             <div>
                                 <h2 className="text-2xl font-bold text-slate-800">Pemantauan Khusus {title}</h2>
-                                <p className="text-sm text-slate-500">Data bersumber dari upload terakhir Admin</p>
+                                <p className="text-sm text-slate-500">Data hasil upload dokumen CSV terbaru Admin</p>
                             </div>
                             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
                                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                                     <label className="text-xs font-bold text-slate-500 whitespace-nowrap">Cabang:</label>
-                                    <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-40 p-2.5 border border-slate-200 rounded-xl bg-white text-sm outline-none font-medium">
+                                    <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-40 p-2.5 border border-slate-200 rounded-2xl bg-white text-sm outline-none font-medium">
                                         {cabangListFilter.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                                     <label className="text-xs font-bold text-slate-500 whitespace-nowrap">Outlet:</label>
-                                    <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-40 p-2.5 border border-slate-200 rounded-xl bg-white text-sm outline-none font-medium">
+                                    <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-40 p-2.5 border border-slate-200 rounded-2xl bg-white text-sm outline-none font-medium">
                                         {outletList.map((outlet, idx) => <option key={idx} value={outlet}>{outlet}</option>)}
                                     </select>
                                 </div>
-                                <button onClick={downloadPDF} className={`w-full sm:w-auto px-4 py-2.5 ${conf.badge} text-white rounded-xl hover:opacity-90 transition flex items-center justify-center font-bold text-sm shadow-sm`}>
-                                    <i className="fas fa-file-pdf mr-2"></i> PDF
+                                <button onClick={downloadPDF} className={`w-full sm:w-auto px-5 py-2.5 ${conf.badge} text-white rounded-2xl hover:opacity-90 transition flex items-center justify-center font-bold text-sm shadow-sm`}>
+                                    <i className="fas fa-file-pdf mr-2"></i> Cetak PDF
                                 </button>
                             </div>
                         </div>
@@ -679,10 +1088,10 @@
                             <div className={`${conf.bg} ${conf.text} p-8 text-center rounded-3xl border ${conf.border}`}>
                                 <i className={`fas fa-folder-open text-4xl mb-3`}></i>
                                 <h3 className="text-lg font-bold">Belum Ada Data {title}</h3>
-                                <p className="text-sm mt-1 opacity-80">Silakan lakukan upload data CSV melalui menu Kelola.</p>
+                                <p className="text-sm mt-1 opacity-80">Silakan lakukan upload file CSV melalui menu Kelola & Setting.</p>
                             </div>
                         ) : (
-                            <div id={`pdf-content-${type}`}>
+                            <div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center space-x-4">
                                         <div className="p-3.5 bg-blue-50 text-blue-600 rounded-2xl"><i className="fas fa-users text-2xl"></i></div>
@@ -695,7 +1104,7 @@
                                 </div>
                                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
+                                        <table id={`table-nasabah-${type}`} className="w-full text-left border-collapse">
                                             <thead>
                                                 <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
                                                     <th className="p-4 font-bold">No. Kontrak</th>
@@ -721,7 +1130,7 @@
                                                         <td className="p-4 text-slate-600 whitespace-nowrap">{item.OUTLET}</td>
                                                     </tr>
                                                 ))}
-                                                {filteredData.length === 0 && <tr><td colSpan="8" className="p-8 text-center text-slate-400">Tidak ada data ditemukan.</td></tr>}
+                                                {filteredData.length === 0 && <tr><td colSpan="8" className="p-8 text-center text-slate-400">Tidak ada data nasabah yang sesuai.</td></tr>}
                                             </tbody>
                                         </table>
                                     </div>
@@ -745,9 +1154,38 @@
                 const singleData = isSingle ? filteredData[0] : null;
 
                 const downloadPDF = () => {
-                    const element = document.getElementById('pdf-report-realisasi');
-                    const opt = { margin: 0.4, filename: `Report_Realisasi_${selectedCabang}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } };
-                    html2pdf().set(opt).from(element).save();
+                    setIsLoading(true);
+                    let success = false;
+                    if (isSingle) {
+                        const scorecardBody = [
+                            ['1. OSL (Outstanding)', singleData.TARGET_OSL, singleData.REALISASI_OSL, singleData.PENCAPAIAN_OSL],
+                            ['2. NPL (Non-Performing)', singleData.TARGET_NPL, singleData.REALISASI_NPL, singleData.PENCAPAIAN_NPL],
+                            ['3. LAR (Loan at Risk)', singleData.TARGET_LAR, singleData.REALISASI_LAR, singleData.PENCAPAIAN_LAR],
+                            ['4. OSL Rata-Rata', singleData.TARGET_RATA2, singleData.REALISASI_RATA2, singleData.PENCAPAIAN_RATA2],
+                            ['5. NOA Baru (Nasabah)', singleData.TARGET_NOA, singleData.REALISASI_NOA, singleData.PENCAPAIAN_NOA]
+                        ];
+                        success = generatePdfReport({
+                            title: `RAPOR PENCAPAIAN TARGET: ${singleData.NAMA_CABANG}`,
+                            subtitle: `Periode Data Berjalan - PT. Pegadaian Area Medan 1`,
+                            filename: `Rapor_Cabang_${singleData.NAMA_CABANG.replace(/\s+/g, '_')}.pdf`,
+                            customHeaders: [['Indikator Kinerja Utama', 'Target', 'Realisasi', 'Pencapaian']],
+                            customBody: scorecardBody,
+                            orientation: 'portrait',
+                            format: 'a4'
+                        });
+                    } else {
+                        success = generatePdfReport({
+                            title: `LAPORAN REALISASI MIKRO AREA MEDAN 1`,
+                            subtitle: `Rekapitulasi Target, Realisasi & Pencapaian Seluruh Cabang`,
+                            filename: `Laporan_Realisasi_Mikro_Semua_Cabang.pdf`,
+                            tableId: 'table-report-realisasi',
+                            orientation: 'landscape',
+                            format: 'legal'
+                        });
+                    }
+                    setIsLoading(false);
+                    if (success) showToast('Laporan PDF berhasil diunduh tanpa terpotong!');
+                    else showToast('Gagal memproses dokumen PDF', 'error');
                 };
 
                 return (
@@ -755,11 +1193,11 @@
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-4">
                             <div><h2 className="text-2xl font-bold text-slate-800">Laporan Realisasi Mikro</h2><p className="text-sm text-slate-500">Pencapaian Target OSL, NPL, LAR & NOA</p></div>
                             <div className="flex space-x-3 w-full sm:w-auto">
-                                <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-auto p-2.5 border border-slate-200 rounded-xl bg-white text-sm font-medium outline-none">
+                                <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-auto p-2.5 border border-slate-200 rounded-2xl bg-white text-sm font-medium outline-none">
                                     {cabangListReport.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}
                                 </select>
-                                <button onClick={downloadPDF} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center shadow-sm">
-                                    <i className="fas fa-file-pdf mr-2"></i> PDF
+                                <button onClick={downloadPDF} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition flex items-center shadow-sm">
+                                    <i className="fas fa-file-pdf mr-2"></i> Cetak PDF
                                 </button>
                             </div>
                         </div>
@@ -767,12 +1205,12 @@
                         {reportData.length === 0 ? (
                             <div className="bg-blue-50/50 text-blue-900 p-8 text-center rounded-3xl border border-blue-200"><i className="fas fa-chart-line text-4xl mb-3 opacity-80"></i><h3 className="text-lg font-bold">Belum Ada Data Report</h3><p className="text-sm mt-1">Silakan minta Admin untuk mengupload CSV Report Realisasi.</p></div>
                         ) : (
-                            <div id="pdf-report-realisasi" className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
+                            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
                                 {isSingle ? (
                                     <div className="space-y-8">
                                         <div className="text-center pb-4 border-b border-slate-100">
                                             <h3 className="text-xl font-bold text-slate-800 mb-1">Rapor Pencapaian: {singleData.NAMA_CABANG}</h3>
-                                            <p className="text-sm text-slate-500">Periode Data Berjalan</p>
+                                            <p className="text-sm text-slate-500">Periode Data Berjalan PT. Pegadaian Area Medan 1</p>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                                             <div className="bg-blue-50/50 border border-blue-100 rounded-3xl p-6 relative overflow-hidden">
@@ -819,7 +1257,7 @@
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse text-sm">
+                                        <table id="table-report-realisasi" className="w-full text-left border-collapse text-sm">
                                             <thead>
                                                 <tr className="bg-slate-100 text-slate-700 border-b">
                                                     <th className="p-3 font-bold whitespace-nowrap" rowSpan="2">Nama Cabang</th>
@@ -867,12 +1305,12 @@
                 
                 // Handler Cabang
                 const addCabang = () => {
-                    if(!newCabang.trim()) return;
+                    if (!newCabang.trim()) return;
                     const cleanName = newCabang.trim().toUpperCase();
                     const updated = [...new Set([...cabangList, cleanName])];
                     setCabangList(updated); localStorage.setItem('cabangList', JSON.stringify(updated));
                     syncMasterToSheet(aoList, productList, adminList, updated);
-                    setNewCabang(""); showToast('Cabang ditambahkan');
+                    setNewCabang(""); showToast('Cabang berhasil ditambahkan');
                 };
 
                 const removeCabang = (cab) => {
@@ -884,10 +1322,10 @@
 
                 // Handler AO
                 const addAo = () => {
-                    if(!newAo.trim()) return;
+                    if (!newAo.trim()) return;
                     const updated = [...new Set([...aoList, newAo.trim()])];
                     setAoList(updated); localStorage.setItem('aoList', JSON.stringify(updated));
-                    syncMasterToSheet(updated, productList, adminList, cabangList); setNewAo(""); showToast('AO ditambahkan');
+                    syncMasterToSheet(updated, productList, adminList, cabangList); setNewAo(""); showToast('AO berhasil ditambahkan');
                 };
                 const removeAo = (ao) => {
                     const updated = aoList.filter(c => c !== ao);
@@ -897,10 +1335,10 @@
 
                 // Handler Admin
                 const addAdmin = () => {
-                    if(!newAdmin.trim()) return;
+                    if (!newAdmin.trim()) return;
                     const updated = [...new Set([...adminList, newAdmin.trim()])];
                     setAdminList(updated); localStorage.setItem('adminList', JSON.stringify(updated));
-                    syncMasterToSheet(aoList, productList, updated, cabangList); setNewAdmin(""); showToast('Admin ditambahkan');
+                    syncMasterToSheet(aoList, productList, updated, cabangList); setNewAdmin(""); showToast('Admin berhasil ditambahkan');
                 };
                 const removeAdmin = (adm) => {
                     const updated = adminList.filter(c => c !== adm);
@@ -910,10 +1348,10 @@
 
                 // Handler Produk
                 const addProduct = () => {
-                    if(!newProduct.trim()) return;
+                    if (!newProduct.trim()) return;
                     const updated = [...new Set([...productList, newProduct.trim()])];
                     setProductList(updated); localStorage.setItem('productList', JSON.stringify(updated));
-                    syncMasterToSheet(aoList, updated, adminList, cabangList); setNewProduct(""); showToast('Produk ditambahkan');
+                    syncMasterToSheet(aoList, updated, adminList, cabangList); setNewProduct(""); showToast('Produk berhasil ditambahkan');
                 };
                 const removeProduct = (prod) => {
                     const updated = productList.filter(p => p !== prod);
@@ -923,21 +1361,20 @@
 
                 // Handler Akun User
                 const addUser = () => {
-                    if(!newUser.username.trim() || !newUser.password.trim()) return showToast('Isi Username & Password!', 'error');
-                    if(appUsers.some(u => u.username.toLowerCase() === newUser.username.trim().toLowerCase())) return showToast('Username sudah ada!', 'error');
+                    if (!newUser.username.trim() || !newUser.password.trim()) return showToast('Isi Username & Password!', 'error');
+                    if (appUsers.some(u => u.username.toLowerCase() === newUser.username.trim().toLowerCase())) return showToast('Username sudah terdaftar!', 'error');
                     const updated = [...appUsers, { username: newUser.username.trim(), password: newUser.password.trim(), role: newUser.role }];
                     setAppUsers(updated); localStorage.setItem('appUsers', JSON.stringify(updated));
-                    syncUsersToSheet(updated); setNewUser({ username: "", password: "", role: "ao" }); showToast('User ditambahkan');
+                    syncUsersToSheet(updated); setNewUser({ username: "", password: "", role: "ao" }); showToast('User baru berhasil dibuat');
                 };
 
                 const removeUser = (username) => {
-                    if(username === 'admin') return showToast('Admin utama tidak bisa dihapus', 'error');
+                    if (username === 'admin') return showToast('Akun Admin utama terproteksi!', 'error');
                     const updated = appUsers.filter(u => u.username !== username);
                     setAppUsers(updated); localStorage.setItem('appUsers', JSON.stringify(updated));
                     syncUsersToSheet(updated); showToast('User dihapus', 'error');
                 };
 
-                // Upload Master 1 Kolom (AO, ADMIN, PRODUK, CABANG)
                 const processMasterCSVUpload = (e, type) => {
                     const file = e.target.files[0];
                     if (!file) return;
@@ -977,7 +1414,6 @@
                     reader.readAsText(file);
                 };
 
-                // Upload Data Nasabah (KOL1, LAR, NPL, REPORT)
                 const processCSVUpload = (e, type) => {
                     const file = e.target.files[0];
                     if (!file) return;
@@ -988,7 +1424,7 @@
                         try {
                             const csv = event.target.result.replace(/^\uFEFF/, "");
                             const lines = csv.split(/\r\n|\n/).filter(line => line.trim().length > 0);
-                            if (lines.length < 2) throw new Error("Data kosong atau format salah");
+                            if (lines.length < 2) throw new Error("Data kosong atau format tidak valid");
                             
                             let delimiter = ',';
                             if (lines[0].includes(';')) delimiter = ';';
@@ -1056,7 +1492,7 @@
                     setConfirmModal({
                         open: true,
                         title: `Kosongkan Data ${type}`,
-                        message: `Hapus seluruh data ${type} saat ini dari aplikasi dan database Google Sheet?`,
+                        message: `Hapus seluruh data ${type} saat ini dari aplikasi dan database Google Sheet? Tindakan ini akan mengosongkan tabel.`,
                         onConfirm: async () => {
                             setIsLoading(true);
                             if (type === 'KOL1') { setKol1Data([]); localStorage.removeItem('kol1Data'); }
@@ -1165,8 +1601,8 @@
                                     </div>
                                 </div>
                                 <div className="flex space-x-2 mb-4">
-                                    <input type="text" value={newCabang} onChange={(e)=>setNewCabang(e.target.value)} placeholder="Nama Cabang Baru" className="flex-1 p-2.5 bg-white border border-rose-200 rounded-2xl text-xs outline-none focus:border-rose-600" />
-                                    <button onClick={addCabang} className="bg-rose-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-rose-700">Add</button>
+                                    <input type="text" value={newCabang} onChange={(e)=>setNewCabang(e.target.value)} placeholder="Nama Cabang" className="flex-1 p-2.5 bg-white border border-rose-200 rounded-2xl text-xs outline-none focus:border-rose-600 font-medium" />
+                                    <button onClick={addCabang} className="bg-rose-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-rose-700 shadow-sm">Add</button>
                                 </div>
                                 <ul className="space-y-2 max-h-44 overflow-y-auto pr-1 text-xs">
                                     {cabangList.map((cab, idx)=>(
@@ -1189,8 +1625,8 @@
                                     </div>
                                 </div>
                                 <div className="flex space-x-2 mb-4">
-                                    <input type="text" value={newAo} onChange={(e)=>setNewAo(e.target.value)} placeholder="Nama AO Baru" className="flex-1 p-2.5 bg-white border border-purple-200 rounded-2xl text-xs outline-none focus:border-purple-600" />
-                                    <button onClick={addAo} className="bg-purple-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-purple-700">Add</button>
+                                    <input type="text" value={newAo} onChange={(e)=>setNewAo(e.target.value)} placeholder="Nama AO Baru" className="flex-1 p-2.5 bg-white border border-purple-200 rounded-2xl text-xs outline-none focus:border-purple-600 font-medium" />
+                                    <button onClick={addAo} className="bg-purple-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-purple-700 shadow-sm">Add</button>
                                 </div>
                                 <ul className="space-y-2 max-h-44 overflow-y-auto pr-1 text-xs">
                                     {aoList.map((ao, idx)=>(
@@ -1213,8 +1649,8 @@
                                     </div>
                                 </div>
                                 <div className="flex space-x-2 mb-4">
-                                    <input type="text" value={newAdmin} onChange={(e)=>setNewAdmin(e.target.value)} placeholder="Admin Baru" className="flex-1 p-2.5 bg-white border border-emerald-200 rounded-2xl text-xs outline-none focus:border-emerald-600" />
-                                    <button onClick={addAdmin} className="bg-emerald-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-emerald-700">Add</button>
+                                    <input type="text" value={newAdmin} onChange={(e)=>setNewAdmin(e.target.value)} placeholder="Admin Baru" className="flex-1 p-2.5 bg-white border border-emerald-200 rounded-2xl text-xs outline-none focus:border-emerald-600 font-medium" />
+                                    <button onClick={addAdmin} className="bg-emerald-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-emerald-700 shadow-sm">Add</button>
                                 </div>
                                 <ul className="space-y-2 max-h-44 overflow-y-auto pr-1 text-xs">
                                     {adminList.map((adm, idx)=>(
@@ -1237,8 +1673,8 @@
                                     </div>
                                 </div>
                                 <div className="flex space-x-2 mb-4">
-                                    <input type="text" value={newProduct} onChange={(e)=>setNewProduct(e.target.value)} placeholder="Produk Baru" className="flex-1 p-2.5 bg-white border border-sky-200 rounded-2xl text-xs outline-none focus:border-sky-600" />
-                                    <button onClick={addProduct} className="bg-sky-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-sky-700">Add</button>
+                                    <input type="text" value={newProduct} onChange={(e)=>setNewProduct(e.target.value)} placeholder="Produk Baru" className="flex-1 p-2.5 bg-white border border-sky-200 rounded-2xl text-xs outline-none focus:border-sky-600 font-medium" />
+                                    <button onClick={addProduct} className="bg-sky-600 text-white px-3 rounded-2xl text-xs font-bold hover:bg-sky-700 shadow-sm">Add</button>
                                 </div>
                                 <ul className="space-y-2 max-h-44 overflow-y-auto pr-1 text-xs">
                                     {productList.map((prod, idx)=>(
@@ -1295,14 +1731,14 @@
 
             return (
                 <div className="flex bg-slate-50 font-sans text-slate-800">
-                    {/* Toast Notification */}
+                    {/* Toast Notification Container */}
                     {toast.show && (
                         <div className={`fixed top-4 right-4 z-50 px-6 py-3.5 rounded-2xl shadow-xl text-white font-bold text-sm flex items-center toast-enter ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
                             <i className={`fas ${toast.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-3 text-lg`}></i> {toast.message}
                         </div>
                     )}
 
-                    {/* Progress Loader */}
+                    {/* Progress Processing Loader */}
                     {isLoading && (
                         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
                             <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-200">
@@ -1312,10 +1748,10 @@
                         </div>
                     )}
 
-                    {/* Modal Dialog Pengganti confirm() */}
+                    {/* Confirmation Modal Dialog */}
                     {confirmModal.open && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+                            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
                                 <div className="flex items-center space-x-3 text-red-600 mb-3">
                                     <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center">
                                         <i className="fas fa-exclamation-triangle text-lg"></i>
@@ -1337,14 +1773,12 @@
 
                     <div className={`mobile-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
 
-                    {/* Sidebar Presisi */}
+                    {/* Panel Navigasi Sidebar Sesuai Gambar Referensi */}
                     <aside className={`sidebar-container ${isSidebarOpen ? 'open' : ''} flex flex-col`}>
                         <div className="p-6 border-b border-slate-100 flex items-center flex-col text-center">
-                            <div className="w-16 h-16 bg-gradient-to-tr from-slate-900 to-blue-950 rounded-full flex items-center justify-center border-2 border-orange-500 shadow-md mb-2.5 relative overflow-hidden">
-                                <div className="text-orange-500 transform -rotate-45 font-bold text-xl absolute"><i className="fas fa-rocket"></i></div>
-                            </div>
-                            <h2 className="font-extrabold text-slate-900 text-base tracking-tight">Area Medan 1</h2>
-                            <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wider font-bold">{isAdmin ? 'Administrator' : 'Account Officer'}</p>
+                            <RocketLogo size={70} />
+                            <h2 className="font-extrabold text-slate-900 text-base tracking-tight mt-2.5">Area Medan 1</h2>
+                            <p className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">{isAdmin ? 'Administrator' : 'Account Officer'}</p>
                         </div>
                         
                         <div className="p-4 overflow-y-auto hide-scroll flex-1 space-y-6">
@@ -1379,7 +1813,7 @@
                         </div>
                     </aside>
 
-                    {/* Main Content Area */}
+                    {/* Area Konten Utama */}
                     <main className="main-content">
                         <header className="flex justify-between items-center mb-8 bg-white p-4 md:px-6 rounded-3xl shadow-sm border border-slate-200">
                             <div className="flex items-center">
@@ -1390,7 +1824,7 @@
                                 </div>
                             </div>
                             <div className="flex items-center space-x-3">
-                                <button onClick={syncFromSheet} className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition flex items-center justify-center border border-blue-200 shadow-sm" title="Tarik Data dari Sheet">
+                                <button onClick={syncFromSheet} className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition flex items-center justify-center border border-blue-200 shadow-sm" title="Sinkronisasi Data Sheet">
                                     <i className="fas fa-sync-alt"></i>
                                 </button>
                                 <div className="bg-slate-50 px-4 py-2 rounded-2xl flex items-center border border-slate-200 shadow-sm">
