@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- jsPDF Library (UNTUK DOWNLOAD PDF) -->
+    <!-- jsPDF Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
@@ -21,14 +21,11 @@
     
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .sidebar-active { background-color: #eff6ff; color: #2563eb; font-weight: 600; border-left: 4px solid #2563eb; }
-        .sidebar-item { border-left: 4px solid transparent; }
-        .sidebar-item:hover { background-color: #f8fafc; color: #1e40af; }
-        
-        /* Custom scrollbar untuk sidebar */
+        .sidebar-active { background-color: #eff6ff; color: #1d4ed8; border-right: 4px solid #1d4ed8; font-weight: 600; }
+        /* Custom Scrollbar for a cleaner look */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
@@ -39,7 +36,7 @@
         const { useState, useEffect, useMemo } = React;
 
         // URL GOOGLE APPS SCRIPT TERBARU
-        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbz0SCsPRGJLk8Fqv_4RFkr-yEGU6UK6ggleEl28ffoyDVTyEVyqL96ucLizZc1Ngbcb/exec";
+        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbw68rJ4Bm9RaZpoXc8uLuq7yio9EuS0t6VOsgo7NQ59FNRBQeUMC9HRkYXA5ONzuth0/exec";
 
         const formatRupiah = (number) => {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
@@ -71,10 +68,9 @@
                 </svg>
             );
 
-            const [activeTab, setActiveTab] = useState('dashReal');
+            const [activeTab, setActiveTab] = useState('dashboard');
             const [data, setData] = useState([]);
             const [estimasiData, setEstimasiData] = useState([]);
-            
             const [sheetUrl, setSheetUrl] = useState(GLOBAL_SHEET_URL);
             const [isLoading, setIsLoading] = useState(false);
             const [toastMessage, setToastMessage] = useState(null);
@@ -82,42 +78,41 @@
             const [userRole, setUserRole] = useState(null);
             const [aoList, setAoList] = useState([]);
             const [adminList, setAdminList] = useState([]);
-            const [loginData, setLoginData] = useState({ username: '', password: '' });
-            const [loginError, setLoginError] = useState('');
+            const [productList, setProductList] = useState([]);
+            
+            const [kol1Data, setKol1Data] = useState([]);
+            const [larData, setLarData] = useState([]);
+            const [nplData, setNplData] = useState([]);
+            const [reportData, setReportData] = useState([]);
 
             const defaultUsers = [
                 { username: 'admin', password: 'Area@123!', role: 'admin' },
                 { username: 'ao', password: 'ao123', role: 'ao' }
             ];
             const [appUsers, setAppUsers] = useState(defaultUsers);
-            const [productList, setProductList] = useState([]);
-
-            const [larData, setLarData] = useState([]);
-            const [nplData, setNplData] = useState([]);
-            const [reportData, setReportData] = useState([]);
+            const [loginData, setLoginData] = useState({ username: '', password: '' });
+            const [loginError, setLoginError] = useState('');
 
             useEffect(() => {
-                const savedData = localStorage.getItem('mikroData');
-                const savedEst = localStorage.getItem('estimasiData');
                 const savedRole = localStorage.getItem('userRole');
-                const savedAo = localStorage.getItem('aoList');
-                const savedAdmin = localStorage.getItem('adminList');
-                const savedProducts = localStorage.getItem('productList');
-                const savedLar = localStorage.getItem('larData');
-                const savedNpl = localStorage.getItem('nplData');
-                const savedReport = localStorage.getItem('reportData');
-                const savedUsers = localStorage.getItem('appUsers');
-                
-                if (savedData) setData(JSON.parse(savedData));
-                if (savedEst) setEstimasiData(JSON.parse(savedEst));
-                if (savedRole) { setUserRole(savedRole); setActiveTab(savedRole === 'admin' ? 'dashReal' : 'dashEst'); }
-                if (savedAo) setAoList(JSON.parse(savedAo));
-                if (savedAdmin) setAdminList(JSON.parse(savedAdmin));
-                if (savedProducts) setProductList(JSON.parse(savedProducts));
-                if (savedLar) setLarData(JSON.parse(savedLar));
-                if (savedNpl) setNplData(JSON.parse(savedNpl));
-                if (savedReport) setReportData(JSON.parse(savedReport));
-                if (savedUsers) setAppUsers(JSON.parse(savedUsers));
+                if (savedRole) {
+                    setUserRole(savedRole);
+                    setActiveTab('dashReal'); // Force specific initial tab
+                }
+                const loadData = (key, setter) => {
+                    const item = localStorage.getItem(key);
+                    if (item) setter(JSON.parse(item));
+                };
+                loadData('mikroData', setData);
+                loadData('estimasiData', setEstimasiData);
+                loadData('aoList', setAoList);
+                loadData('adminList', setAdminList);
+                loadData('productList', setProductList);
+                loadData('kol1Data', setKol1Data);
+                loadData('larData', setLarData);
+                loadData('nplData', setNplData);
+                loadData('reportData', setReportData);
+                loadData('appUsers', setAppUsers);
             }, []);
 
             useEffect(() => {
@@ -137,29 +132,24 @@
                     const result = await response.json();
                     
                     if(result) {
-                        // Perbaikan Tanggal (Timezone Fix)
                         const processDates = (arr) => arr.filter(item => item.Tanggal || item.Nama).map(item => {
                             if (item.Tanggal) {
                                 const d = new Date(item.Tanggal);
                                 if (!isNaN(d.getTime())) {
-                                    d.setHours(d.getHours() + 7); // Tambah 7 Jam WIB agar tidak mundur 1 hari
+                                    d.setHours(d.getHours() + 7); // Adjust timezone for Indonesia (WIB)
                                     item.Tanggal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                                 }
                             }
                             return item;
                         });
 
-                        if(result.pencairan) {
-                            const validData = processDates(result.pencairan);
-                            setData(validData); localStorage.setItem('mikroData', JSON.stringify(validData));
-                        }
-                        if(result.estimasi) {
-                            const validEstData = processDates(result.estimasi);
-                            setEstimasiData(validEstData); localStorage.setItem('estimasiData', JSON.stringify(validEstData));
-                        }
+                        if(result.pencairan) { const validData = processDates(result.pencairan); setData(validData); localStorage.setItem('mikroData', JSON.stringify(validData)); }
+                        if(result.estimasi) { const validEst = processDates(result.estimasi); setEstimasiData(validEst); localStorage.setItem('estimasiData', JSON.stringify(validEst)); }
+                        if(result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
                         if(result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
                         if(result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
                         if(result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
+                        
                         if(result.master && result.master.length > 1) {
                             const ao = [], prod = [], adm = [];
                             for(let i=1; i<result.master.length; i++){
@@ -173,9 +163,10 @@
                             localStorage.setItem('adminList', JSON.stringify(adm));
                         }
                         if(result.users && result.users.length > 0) {
-                            setAppUsers(result.users); localStorage.setItem('appUsers', JSON.stringify(result.users));
+                            setAppUsers(result.users);
+                            localStorage.setItem('appUsers', JSON.stringify(result.users));
                         }
-                        showToast('Database Cloud Tersinkronisasi!');
+                        showToast('Database Tersinkronisasi!');
                     }
                 } catch (error) { showToast('Gagal menarik data dari Database', 'error'); }
                 setIsLoading(false);
@@ -198,53 +189,6 @@
                 fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'save_users', data: twoDArray }) });
             };
 
-            const deleteDataPencairan = async (itemToDelete, type = 'realisasi') => {
-                setIsLoading(true);
-                if (type === 'realisasi') {
-                    const newData = data.filter(item => item !== itemToDelete);
-                    setData(newData); localStorage.setItem('mikroData', JSON.stringify(newData));
-                } else {
-                    const newData = estimasiData.filter(item => item !== itemToDelete);
-                    setEstimasiData(newData); localStorage.setItem('estimasiData', JSON.stringify(newData));
-                }
-
-                if (sheetUrl) {
-                    try {
-                        let tglFormat = itemToDelete.Tanggal;
-                        if (tglFormat.includes('T')) tglFormat = tglFormat.split('T')[0];
-                        await fetch(sheetUrl, {
-                            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: type === 'realisasi' ? 'delete_pencairan' : 'delete_estimasi', NoKredit: itemToDelete.NoKredit, Nama: itemToDelete.Nama, Tanggal: tglFormat, Produk: itemToDelete.Produk })
-                        });
-                        showToast(`Data ${type} berhasil dihapus dari Cloud!`);
-                    } catch (error) { showToast('Gagal menghapus dari Database Cloud.', 'error'); }
-                }
-                setIsLoading(false);
-            };
-
-            const submitData = async (formData, type = 'realisasi') => {
-                setIsLoading(true);
-                if (type === 'realisasi') {
-                    const newData = [...data, formData];
-                    setData(newData); localStorage.setItem('mikroData', JSON.stringify(newData));
-                } else {
-                    const newData = [...estimasiData, formData];
-                    setEstimasiData(newData); localStorage.setItem('estimasiData', JSON.stringify(newData));
-                }
-
-                if (sheetUrl) {
-                    try {
-                        await fetch(sheetUrl, {
-                            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: type === 'realisasi' ? 'add_pencairan' : 'add_estimasi', data: formData })
-                        });
-                        showToast(`Data ${type} berhasil disimpan ke Cloud Database!`);
-                    } catch (error) { showToast('Gagal mengirim ke Cloud Database.', 'error'); }
-                }
-                setIsLoading(false);
-                setActiveTab(type === 'realisasi' ? (userRole === 'admin' ? 'dataReal' : 'dashReal') : (userRole === 'admin' ? 'dataEst' : 'dashEst')); 
-            };
-
             const handleLoginChange = (e) => {
                 setLoginData({ ...loginData, [e.target.name]: e.target.value });
                 setLoginError('');
@@ -252,18 +196,22 @@
 
             const processLogin = (e) => {
                 e.preventDefault();
-                const { username, password } = loginData;
-                const validUser = appUsers.find(u => u.username === username && u.password === password);
-                
+                const validUser = appUsers.find(u => u.username === loginData.username && u.password === loginData.password);
                 if (validUser) {
                     setUserRole(validUser.role);
                     localStorage.setItem('userRole', validUser.role);
-                    setActiveTab(validUser.role === 'admin' ? 'dashReal' : 'dashEst');
+                    setActiveTab('dashReal');
                 } else {
                     setLoginError('Username atau Password salah!');
                 }
             };
-            const handleLogout = () => { setUserRole(null); localStorage.removeItem('userRole'); setLoginData({ username: '', password: '' }); setActiveTab('dashReal'); };
+
+            const handleLogout = () => {
+                setUserRole(null);
+                localStorage.removeItem('userRole');
+                setLoginData({ username: '', password: '' });
+                setActiveTab('dashboard');
+            };
 
             const AdminPanel = () => {
                 const [newAo, setNewAo] = useState('');
@@ -273,8 +221,10 @@
 
                 const addAo = () => { if(!newAo) return; const updated = [...aoList, newAo]; setAoList(updated); localStorage.setItem('aoList', JSON.stringify(updated)); syncMasterToSheet(updated, productList, adminList); setNewAo(''); showToast('AO berhasil ditambahkan'); };
                 const removeAo = (ao) => { const updated = aoList.filter(c => c !== ao); setAoList(updated); localStorage.setItem('aoList', JSON.stringify(updated)); syncMasterToSheet(updated, productList, adminList); showToast('AO dihapus', 'error'); };
+                
                 const addAdmin = () => { if(!newAdmin) return; const updated = [...adminList, newAdmin]; setAdminList(updated); localStorage.setItem('adminList', JSON.stringify(updated)); syncMasterToSheet(aoList, productList, updated); setNewAdmin(''); showToast('Admin berhasil ditambahkan'); };
                 const removeAdmin = (adm) => { const updated = adminList.filter(c => c !== adm); setAdminList(updated); localStorage.setItem('adminList', JSON.stringify(updated)); syncMasterToSheet(aoList, productList, updated); showToast('Admin dihapus', 'error'); };
+
                 const addProduct = () => { if(!newProduct) return; const updated = [...productList, newProduct]; setProductList(updated); localStorage.setItem('productList', JSON.stringify(updated)); syncMasterToSheet(aoList, updated, adminList); setNewProduct(''); showToast('Produk berhasil ditambahkan'); };
                 const removeProduct = (prod) => { const updated = productList.filter(p => p !== prod); setProductList(updated); localStorage.setItem('productList', JSON.stringify(updated)); syncMasterToSheet(aoList, updated, adminList); showToast('Produk dihapus', 'error'); };
 
@@ -286,11 +236,10 @@
                 };
 
                 const removeUser = (username) => {
-                    if(username === 'admin') return showToast('Admin utama tidak bisa dihapus', 'error');
+                    if(username === 'admin') return showToast('Admin utama tidak bisa dihapus!', 'error');
                     const updated = appUsers.filter(u => u.username !== username); setAppUsers(updated); localStorage.setItem('appUsers', JSON.stringify(updated)); syncUsersToSheet(updated); showToast('User dihapus', 'error');
                 };
 
-                // FUNGSI UPLOAD CSV UNTUK MASTER DATA
                 const processMasterCSVUpload = (file, type) => {
                     const reader = new FileReader();
                     reader.onload = (event) => {
@@ -298,7 +247,6 @@
                             const csv = event.target.result.replace(/^\uFEFF/, '');
                             const lines = csv.split(/\r\n|\n/).map(line => line.trim().replace(/['"]/g, '')).filter(line => line.length > 0);
                             
-                            // Hapus header otomatis
                             if (lines.length > 0 && ['AO', 'NAMA', 'NAMA AO', 'NAMA_AO', 'ADMIN', 'ADMIN MIKRO', 'ADMIN_MIKRO', 'PRODUK', 'NAMA PRODUK', 'NAMA_PRODUK'].includes(lines[0].toUpperCase())) {
                                 lines.shift();
                             }
@@ -320,7 +268,9 @@
                 const downloadTemplateCSV = (type) => {
                     let headers = '';
                     if (type === 'REPORT') headers = 'NAMA_CABANG,TARGET_OSL,REALISASI_OSL,PENCAPAIAN_OSL,TARGET_NPL,REALISASI_NPL,PENCAPAIAN_NPL,TARGET_LAR,REALISASI_LAR,PENCAPAIAN_LAR,TARGET_RATA2,REALISASI_RATA2,PENCAPAIAN_RATA2,TARGET_NOA,REALISASI_NOA,PENCAPAIAN_NOA\n10204:CP MEDAN PETISAH,17.698.150.629,17.792.220.707,100.53%,1.66,4.33,38.33%,11.57,18.72,61.81%,16.843.528.392,16.973.417.363,100.77%,175,56,32.01%';
+                    else if (type === 'KOL1') headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,TGL_JATUH_TEMPO,KOLEKTIBILITAS,HARI_TUNGGAKAN,OSL,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,01-10-2026,1,5,5000000,UPC A,CH-1,CABANG A';
                     else headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,KOLEKTIBILITAS,HARI_TUNGGAKAN,UP,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,2,45,5000000,UPC A,CH-1,CABANG A';
+                    
                     const blob = new Blob([headers], { type: 'text/csv' });
                     const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `Template_Upload_${type}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 };
@@ -339,8 +289,9 @@
                             
                             const requiredHeadersLARNPL = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'UP', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
                             const requiredHeadersREPORT = ['NAMA_CABANG', 'TARGET_OSL', 'REALISASI_OSL', 'PENCAPAIAN_OSL', 'TARGET_NPL', 'REALISASI_NPL', 'PENCAPAIAN_NPL', 'TARGET_LAR', 'REALISASI_LAR', 'PENCAPAIAN_LAR', 'TARGET_RATA2', 'REALISASI_RATA2', 'PENCAPAIAN_RATA2', 'TARGET_NOA', 'REALISASI_NOA', 'PENCAPAIAN_NOA'];
-                            const reqHeaders = type === 'REPORT' ? requiredHeadersREPORT : requiredHeadersLARNPL;
-                            
+                            const requiredHeadersKOL1 = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
+
+                            const reqHeaders = type === 'REPORT' ? requiredHeadersREPORT : (type === 'KOL1' ? requiredHeadersKOL1 : requiredHeadersLARNPL);
                             const parsedData = [];
                             const twoDArrayForSheet = [reqHeaders];
 
@@ -357,12 +308,13 @@
                             
                             if (parsedData.length === 0) throw new Error("File tidak memiliki baris data yang valid.");
                             
-                            if(type === 'LAR') { setLarData(parsedData); localStorage.setItem('larData', JSON.stringify(parsedData)); }
-                            else if (type === 'NPL') { setNplData(parsedData); localStorage.setItem('nplData', JSON.stringify(parsedData)); }
+                            if(type === 'LAR') { setLarData(parsedData); localStorage.setItem('larData', JSON.stringify(parsedData)); } 
+                            else if (type === 'NPL') { setNplData(parsedData); localStorage.setItem('nplData', JSON.stringify(parsedData)); } 
+                            else if (type === 'KOL1') { setKol1Data(parsedData); localStorage.setItem('kol1Data', JSON.stringify(parsedData)); }
                             else if (type === 'REPORT') { setReportData(parsedData); localStorage.setItem('reportData', JSON.stringify(parsedData)); }
                             
                             if(sheetUrl) {
-                                let actionType = type === 'LAR' ? 'upload_lar' : (type === 'NPL' ? 'upload_npl' : 'upload_report');
+                                let actionType = type === 'LAR' ? 'upload_lar' : (type === 'NPL' ? 'upload_npl' : (type === 'KOL1' ? 'upload_kol1' : 'upload_report'));
                                 fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: actionType, data: twoDArrayForSheet }) });
                                 showToast(`Berhasil! ${parsedData.length} data ${type} berhasil diupload.`);
                             }
@@ -371,96 +323,261 @@
                     reader.readAsText(file);
                 };
 
-                const resetData = (type) => {
+                const resetData = async (type) => {
                     if(window.confirm(`Yakin ingin menghapus seluruh data ${type}? Data di Cloud Spreadsheet juga akan dikosongkan.`)) {
+                        setIsLoading(true);
                         let actionKey = '';
                         if (type === 'LAR') { setLarData([]); localStorage.removeItem('larData'); actionKey = 'upload_lar'; }
-                        if (type === 'NPL') { setNplData([]); localStorage.removeItem('nplData'); actionKey = 'upload_npl'; }
-                        if (type === 'REPORT') { setReportData([]); localStorage.removeItem('reportData'); actionKey = 'upload_report'; }
-                        if(sheetUrl) { fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: actionKey, data: [] }) }); }
-                        showToast(`Data ${type} berhasil dikosongkan!`);
+                        else if (type === 'NPL') { setNplData([]); localStorage.removeItem('nplData'); actionKey = 'upload_npl'; }
+                        else if (type === 'KOL1') { setKol1Data([]); localStorage.removeItem('kol1Data'); actionKey = 'upload_kol1'; }
+                        else if (type === 'REPORT') { setReportData([]); localStorage.removeItem('reportData'); actionKey = 'upload_report'; }
+                        
+                        if(sheetUrl) { 
+                            try {
+                                // Await fetch ensures it executes properly before continuing
+                                await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: actionKey, data: [] }) }); 
+                                showToast(`Data ${type} berhasil dikosongkan!`);
+                            } catch (error) {
+                                showToast(`Gagal mereset data di server!`, 'error');
+                            }
+                        }
+                        setIsLoading(false);
                     }
                 };
 
                 return (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* KOTAK LAR */}
-                            <div className="bg-orange-50 p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col justify-between">
-                                <div><h2 className="text-xl font-bold text-orange-800"><i className="fas fa-exclamation-circle mr-2"></i>Upload Data LAR</h2><p className="text-sm text-orange-600 mt-1">Upload CSV daftar nasabah LAR</p>
-                                    <div className="mt-3 flex gap-2"><button onClick={() => downloadTemplateCSV('LAR')} className="text-xs bg-white text-orange-700 px-3 py-1.5 border border-orange-200 rounded hover:bg-orange-100 transition">Template</button><button onClick={() => resetData('LAR')} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition">Reset</button></div>
+                        {/* KOTAK UPLOAD DATA CSV (KOL1, LAR, NPL, REPORT) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* KOL 1 */}
+                            <div className="bg-yellow-50 p-5 rounded-xl shadow-sm border border-yellow-200 border-t-4 border-t-yellow-500 flex flex-col justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-yellow-800"><i className="fas fa-exclamation mr-2"></i>Data KOL 1</h2>
+                                    <p className="text-xs text-yellow-700 mt-1">Tunggakan 1 sd 10 Hari</p>
+                                    <div className="mt-3 flex gap-2">
+                                        <button onClick={() => downloadTemplateCSV('KOL1')} className="text-[10px] bg-white text-yellow-700 px-2 py-1 border border-yellow-300 rounded hover:bg-yellow-100 font-bold"><i className="fas fa-download mr-1"></i> Template</button>
+                                        <button onClick={() => resetData('KOL1')} className="text-[10px] bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 font-bold"><i className="fas fa-trash mr-1"></i> Reset</button>
+                                    </div>
                                 </div>
                                 <div className="w-full relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => { if(e.target.files[0]) processCSVUpload(e.target.files[0], 'LAR'); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-orange-600 text-white px-4 py-2.5 rounded-lg flex justify-center items-center pointer-events-none">Upload CSV LAR</button>
+                                    <input type="file" accept=".csv" onClick={(e) => { e.target.value = null; }} onChange={(e) => { if (e.target.files[0]) processCSVUpload(e.target.files[0], 'KOL1') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-sm flex justify-center items-center pointer-events-none font-medium"><i className="fas fa-upload mr-2"></i> Upload KOL 1</button>
                                 </div>
                             </div>
-                            {/* KOTAK NPL */}
-                            <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-100 flex flex-col justify-between">
-                                <div><h2 className="text-xl font-bold text-red-800"><i className="fas fa-exclamation-triangle mr-2"></i>Upload Data NPL</h2><p className="text-sm text-red-600 mt-1">Upload CSV daftar nasabah NPL</p>
-                                    <div className="mt-3 flex gap-2"><button onClick={() => downloadTemplateCSV('NPL')} className="text-xs bg-white text-red-700 px-3 py-1.5 border border-red-200 rounded hover:bg-red-100 transition">Template</button><button onClick={() => resetData('NPL')} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition">Reset</button></div>
-                                </div>
-                                <div className="w-full relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => { if(e.target.files[0]) processCSVUpload(e.target.files[0], 'NPL'); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-red-600 text-white px-4 py-2.5 rounded-lg flex justify-center items-center pointer-events-none">Upload CSV NPL</button>
-                                </div>
-                            </div>
-                            {/* KOTAK REPORT */}
-                            <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-blue-100 flex flex-col justify-between">
-                                <div><h2 className="text-xl font-bold text-blue-800"><i className="fas fa-chart-line mr-2"></i>Upload Report</h2><p className="text-sm text-blue-600 mt-1">Upload CSV Realisasi Mikro</p>
-                                    <div className="mt-3 flex gap-2"><button onClick={() => downloadTemplateCSV('REPORT')} className="text-xs bg-white text-blue-700 px-3 py-1.5 border border-blue-200 rounded hover:bg-blue-100 transition">Template</button><button onClick={() => resetData('REPORT')} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition">Reset</button></div>
+                            
+                            {/* LAR */}
+                            <div className="bg-orange-50 p-5 rounded-xl shadow-sm border border-orange-200 border-t-4 border-t-orange-500 flex flex-col justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-orange-800"><i className="fas fa-exclamation-circle mr-2"></i>Data LAR</h2>
+                                    <p className="text-xs text-orange-700 mt-1">Tunggakan 11 sd 30 Hari</p>
+                                    <div className="mt-3 flex gap-2">
+                                        <button onClick={() => downloadTemplateCSV('LAR')} className="text-[10px] bg-white text-orange-700 px-2 py-1 border border-orange-300 rounded hover:bg-orange-100 font-bold"><i className="fas fa-download mr-1"></i> Template</button>
+                                        <button onClick={() => resetData('LAR')} className="text-[10px] bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 font-bold"><i className="fas fa-trash mr-1"></i> Reset</button>
+                                    </div>
                                 </div>
                                 <div className="w-full relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => { if(e.target.files[0]) processCSVUpload(e.target.files[0], 'REPORT'); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-blue-600 text-white px-4 py-2.5 rounded-lg flex justify-center items-center pointer-events-none">Upload CSV Report</button>
+                                    <input type="file" accept=".csv" onClick={(e) => { e.target.value = null; }} onChange={(e) => { if (e.target.files[0]) processCSVUpload(e.target.files[0], 'LAR') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <button className="w-full bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg text-sm flex justify-center items-center pointer-events-none font-medium"><i className="fas fa-upload mr-2"></i> Upload LAR</button>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Kelola Nama AO (Estimasi)</h3>
-                                <div className="absolute top-6 right-6 w-24 relative overflow-hidden inline-block"><input type="file" accept=".csv" onClick={(e) => { e.target.value = null }} onChange={(e) => { if(e.target.files[0]) processMasterCSVUpload(e.target.files[0], 'AO') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><button className="w-full text-[10px] bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded pointer-events-none"><i className="fas fa-file-csv mr-1"></i>Upload CSV</button></div>
-                                <div className="flex gap-2 mb-4 mt-2"><input type="text" value={newAo} onChange={(e)=>setNewAo(e.target.value)} placeholder="Nama AO Baru" className="flex-1 p-2.5 border rounded-lg outline-none text-sm" /><button onClick={addAo} className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm">Tambah</button></div>
-                                <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">{aoList.map((ao, idx) => (<li key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border"><span className="font-medium text-gray-700 text-sm">{ao}</span><button onClick={() => removeAo(ao)} className="text-red-500 hover:text-red-700 p-1"><i className="fas fa-trash"></i></button></li>))}</ul>
+                            
+                            {/* NPL */}
+                            <div className="bg-red-50 p-5 rounded-xl shadow-sm border border-red-200 border-t-4 border-t-red-500 flex flex-col justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-red-800"><i className="fas fa-exclamation-triangle mr-2"></i>Data NPL</h2>
+                                    <p className="text-xs text-red-700 mt-1">Kolektibilitas 3 sd 5</p>
+                                    <div className="mt-3 flex gap-2">
+                                        <button onClick={() => downloadTemplateCSV('NPL')} className="text-[10px] bg-white text-red-700 px-2 py-1 border border-red-300 rounded hover:bg-red-100 font-bold"><i className="fas fa-download mr-1"></i> Template</button>
+                                        <button onClick={() => resetData('NPL')} className="text-[10px] bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 font-bold"><i className="fas fa-trash mr-1"></i> Reset</button>
+                                    </div>
+                                </div>
+                                <div className="w-full relative mt-4">
+                                    <input type="file" accept=".csv" onClick={(e) => { e.target.value = null; }} onChange={(e) => { if (e.target.files[0]) processCSVUpload(e.target.files[0], 'NPL') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <button className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm flex justify-center items-center pointer-events-none font-medium"><i className="fas fa-upload mr-2"></i> Upload NPL</button>
+                                </div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Kelola Admin Mikro</h3>
-                                <div className="absolute top-6 right-6 w-24 relative overflow-hidden inline-block"><input type="file" accept=".csv" onClick={(e) => { e.target.value = null }} onChange={(e) => { if(e.target.files[0]) processMasterCSVUpload(e.target.files[0], 'ADMIN') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><button className="w-full text-[10px] bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded pointer-events-none"><i className="fas fa-file-csv mr-1"></i>Upload CSV</button></div>
-                                <div className="flex gap-2 mb-4 mt-2"><input type="text" value={newAdmin} onChange={(e)=>setNewAdmin(e.target.value)} placeholder="Nama Admin Baru" className="flex-1 p-2.5 border rounded-lg outline-none text-sm" /><button onClick={addAdmin} className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm">Tambah</button></div>
-                                <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">{adminList.map((adm, idx) => (<li key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border"><span className="font-medium text-gray-700 text-sm">{adm}</span><button onClick={() => removeAdmin(adm)} className="text-red-500 hover:text-red-700 p-1"><i className="fas fa-trash"></i></button></li>))}</ul>
-                            </div>
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Kelola Produk</h3>
-                                <div className="absolute top-6 right-6 w-24 relative overflow-hidden inline-block"><input type="file" accept=".csv" onClick={(e) => { e.target.value = null }} onChange={(e) => { if(e.target.files[0]) processMasterCSVUpload(e.target.files[0], 'PRODUK') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><button className="w-full text-[10px] bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded pointer-events-none"><i className="fas fa-file-csv mr-1"></i>Upload CSV</button></div>
-                                <div className="flex gap-2 mb-4 mt-2"><input type="text" value={newProduct} onChange={(e)=>setNewProduct(e.target.value)} placeholder="Nama Produk Baru" className="flex-1 p-2.5 border rounded-lg outline-none text-sm" /><button onClick={addProduct} className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm">Tambah</button></div>
-                                <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">{productList.map((prod, idx) => (<li key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border"><span className="font-medium text-gray-700 text-sm">{prod}</span><button onClick={() => removeProduct(prod)} className="text-red-500 hover:text-red-700 p-1"><i className="fas fa-trash"></i></button></li>))}</ul>
+                            
+                            {/* REPORT */}
+                            <div className="bg-blue-50 p-5 rounded-xl shadow-sm border border-blue-200 border-t-4 border-t-blue-500 flex flex-col justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-blue-800"><i className="fas fa-chart-line mr-2"></i>Report Mikro</h2>
+                                    <p className="text-xs text-blue-700 mt-1">Realisasi per Cabang</p>
+                                    <div className="mt-3 flex gap-2">
+                                        <button onClick={() => downloadTemplateCSV('REPORT')} className="text-[10px] bg-white text-blue-700 px-2 py-1 border border-blue-300 rounded hover:bg-blue-100 font-bold"><i className="fas fa-download mr-1"></i> Template</button>
+                                        <button onClick={() => resetData('REPORT')} className="text-[10px] bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 font-bold"><i className="fas fa-trash mr-1"></i> Reset</button>
+                                    </div>
+                                </div>
+                                <div className="w-full relative mt-4">
+                                    <input type="file" accept=".csv" onClick={(e) => { e.target.value = null; }} onChange={(e) => { if (e.target.files[0]) processCSVUpload(e.target.files[0], 'REPORT') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm flex justify-center items-center pointer-events-none font-medium"><i className="fas fa-upload mr-2"></i> Upload Report</button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-6">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i className="fas fa-user-shield mr-2"></i>Kelola Akun Pengguna (Login)</h3>
-                            <div className="flex flex-col md:flex-row gap-3 mb-6">
-                                <input type="text" value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} placeholder="Username Baru" className="flex-1 p-2.5 border rounded-lg outline-none" />
-                                <input type="text" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} placeholder="Password" className="flex-1 p-2.5 border rounded-lg outline-none" />
-                                <select value={newUser.role} onChange={(e)=>setNewUser({...newUser, role: e.target.value})} className="p-2.5 border rounded-lg outline-none bg-white"><option value="ao">Petugas (AO)</option><option value="admin">Admin</option></select>
-                                <button onClick={addUser} className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-medium whitespace-nowrap"><i className="fas fa-plus mr-2"></i>Tambah Akun</button>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Kelola AO */}
+                            <div className="bg-indigo-50 p-6 rounded-xl shadow-sm border border-indigo-200 border-t-4 border-t-indigo-500 flex flex-col h-[350px]">
+                                <div className="flex justify-between items-center border-b border-indigo-200 pb-2 mb-4">
+                                    <h3 className="text-md font-bold text-indigo-900">Nama AO (Estimasi)</h3>
+                                    <div className="relative">
+                                        <input type="file" accept=".csv" onClick={(e) => { e.target.value = null }} onChange={(e) => { if(e.target.files[0]) processMasterCSVUpload(e.target.files[0], 'AO') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <button className="text-[10px] bg-indigo-100 text-indigo-700 border border-indigo-300 px-2 py-1 rounded hover:bg-indigo-200 font-bold"><i className="fas fa-file-csv mr-1"></i> Upload CSV</button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mb-4"><input type="text" value={newAo} onChange={(e)=>setNewAo(e.target.value)} placeholder="Nama AO Baru" className="flex-1 p-2 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" /><button onClick={addAo} className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">Tambah</button></div>
+                                <ul className="space-y-2 flex-1 overflow-y-auto pr-1">
+                                    {aoList.map((ao, idx) => ( <li key={idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-indigo-100 shadow-sm"><span className="font-medium text-gray-700 text-sm truncate">{ao}</span><button onClick={() => removeAo(ao)} className="text-red-400 hover:text-red-600 p-1"><i className="fas fa-trash"></i></button></li> ))}
+                                </ul>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse text-sm">
-                                    <thead><tr className="bg-gray-50 text-gray-600 border-b"><th className="p-3 font-medium">Username</th><th className="p-3 font-medium">Password</th><th className="p-3 font-medium">Role</th><th className="p-3 font-medium text-center">Aksi</th></tr></thead>
+                            
+                            {/* Kelola Admin Mikro */}
+                            <div className="bg-emerald-50 p-6 rounded-xl shadow-sm border border-emerald-200 border-t-4 border-t-emerald-500 flex flex-col h-[350px]">
+                                <div className="flex justify-between items-center border-b border-emerald-200 pb-2 mb-4">
+                                    <h3 className="text-md font-bold text-emerald-900">Admin (Realisasi)</h3>
+                                    <div className="relative">
+                                        <input type="file" accept=".csv" onClick={(e) => { e.target.value = null }} onChange={(e) => { if(e.target.files[0]) processMasterCSVUpload(e.target.files[0], 'ADMIN') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <button className="text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300 px-2 py-1 rounded hover:bg-emerald-200 font-bold"><i className="fas fa-file-csv mr-1"></i> Upload CSV</button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mb-4"><input type="text" value={newAdmin} onChange={(e)=>setNewAdmin(e.target.value)} placeholder="Nama Admin Baru" className="flex-1 p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm" /><button onClick={addAdmin} className="bg-emerald-600 text-white px-3 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium">Tambah</button></div>
+                                <ul className="space-y-2 flex-1 overflow-y-auto pr-1">
+                                    {adminList.map((adm, idx) => ( <li key={idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-emerald-100 shadow-sm"><span className="font-medium text-gray-700 text-sm truncate">{adm}</span><button onClick={() => removeAdmin(adm)} className="text-red-400 hover:text-red-600 p-1"><i className="fas fa-trash"></i></button></li> ))}
+                                </ul>
+                            </div>
+
+                            {/* Kelola Produk */}
+                            <div className="bg-purple-50 p-6 rounded-xl shadow-sm border border-purple-200 border-t-4 border-t-purple-500 flex flex-col h-[350px]">
+                                <div className="flex justify-between items-center border-b border-purple-200 pb-2 mb-4">
+                                    <h3 className="text-md font-bold text-purple-900">Master Produk</h3>
+                                    <div className="relative">
+                                        <input type="file" accept=".csv" onClick={(e) => { e.target.value = null }} onChange={(e) => { if(e.target.files[0]) processMasterCSVUpload(e.target.files[0], 'PRODUK') }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <button className="text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-1 rounded hover:bg-purple-200 font-bold"><i className="fas fa-file-csv mr-1"></i> Upload CSV</button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mb-4"><input type="text" value={newProduct} onChange={(e)=>setNewProduct(e.target.value)} placeholder="Nama Produk Baru" className="flex-1 p-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm" /><button onClick={addProduct} className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 text-sm font-medium">Tambah</button></div>
+                                <ul className="space-y-2 flex-1 overflow-y-auto pr-1">
+                                    {productList.map((prod, idx) => ( <li key={idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-purple-100 shadow-sm"><span className="font-medium text-gray-700 text-sm truncate">{prod}</span><button onClick={() => removeProduct(prod)} className="text-red-400 hover:text-red-600 p-1"><i className="fas fa-trash"></i></button></li> ))}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* MANAJEMEN AKUN LOGIN */}
+                        <div className="bg-slate-50 p-6 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-slate-600">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2"><i className="fas fa-user-shield mr-2"></i>Kelola Akun Pengguna (Login)</h3>
+                            <div className="flex flex-col md:flex-row gap-3 mb-6">
+                                <input type="text" value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} placeholder="Username Baru" className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                                <input type="text" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} placeholder="Password" className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                                <select value={newUser.role} onChange={(e)=>setNewUser({...newUser, role: e.target.value})} className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                    <option value="ao">Petugas (AO)</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <button onClick={addUser} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium whitespace-nowrap"><i className="fas fa-plus mr-2"></i>Tambah Akun</button>
+                            </div>
+                            <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg shadow-sm">
+                                <table className="w-full text-left text-sm">
+                                    <thead><tr className="bg-slate-100 text-slate-700 border-b border-slate-200"><th className="p-3 font-bold">Username</th><th className="p-3 font-bold">Password</th><th className="p-3 font-bold">Role</th><th className="p-3 font-bold text-center">Aksi</th></tr></thead>
                                     <tbody>
                                         {appUsers.map((u, idx) => (
-                                            <tr key={idx} className="border-b hover:bg-gray-50">
-                                                <td className="p-3 font-medium text-gray-800">{u.username}</td><td className="p-3 text-gray-600">{u.password}</td>
+                                            <tr key={idx} className="border-b last:border-b-0 hover:bg-slate-50">
+                                                <td className="p-3 font-medium text-slate-800">{u.username}</td>
+                                                <td className="p-3 text-slate-600">{u.password}</td>
                                                 <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{u.role === 'admin' ? 'Admin' : 'Petugas (AO)'}</span></td>
-                                                <td className="p-3 text-center"><button onClick={() => removeUser(u.username)} disabled={u.username === 'admin'} className={`p-1.5 rounded ${u.username === 'admin' ? 'text-gray-300' : 'text-red-500 hover:bg-red-50'}`}><i className="fas fa-trash"></i></button></td>
+                                                <td className="p-3 text-center">
+                                                    <button onClick={() => removeUser(u.username)} disabled={u.username === 'admin'} className={`p-1.5 rounded ${u.username === 'admin' ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:text-red-700 hover:bg-red-50 transition'}`} title={u.username === 'admin' ? 'Tidak bisa dihapus' : 'Hapus'}><i className="fas fa-trash"></i></button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+                    </div>
+                );
+            };
+
+            const TableKol1View = () => {
+                const [searchTerm, setSearchTerm] = useState('');
+                const [selectedCabang, setSelectedCabang] = useState('Semua');
+                const [selectedOutlet, setSelectedOutlet] = useState('Semua');
+                
+                useEffect(() => { setSelectedOutlet('Semua'); }, [selectedCabang]);
+                
+                const cabangList = ['Semua', ...new Set(kol1Data.map(item => item.CABANG).filter(Boolean))];
+                const availableOutlets = kol1Data.filter(item => selectedCabang === 'Semua' || item.CABANG === selectedCabang).map(item => item.OUTLET).filter(Boolean);
+                const outletList = ['Semua', ...new Set(availableOutlets)];
+
+                const filteredData = kol1Data.filter(item => {
+                    const matchCabang = selectedCabang === 'Semua' || item.CABANG === selectedCabang;
+                    const matchOutlet = selectedOutlet === 'Semua' || item.OUTLET === selectedOutlet;
+                    const matchSearch = !searchTerm || 
+                           (item.CUSTOMER_NM && item.CUSTOMER_NM.toLowerCase().includes(searchTerm.toLowerCase())) || 
+                           (item.NO_KONTRAK && item.NO_KONTRAK.toLowerCase().includes(searchTerm.toLowerCase()));
+                    
+                    return matchCabang && matchOutlet && matchSearch;
+                });
+                
+                const totalOut = filteredData.reduce((sum, item) => sum + (Number(item.OSL) || 0), 0);
+
+                const downloadPDF = () => {
+                    if (typeof window.jspdf === 'undefined') return showToast('Library PDF belum dimuat. Refresh halaman.', 'error');
+                    if (filteredData.length === 0) return showToast('Tidak ada data didownload', 'error');
+                    try {
+                        const doc = new window.jspdf.jsPDF('landscape');
+                        doc.setFontSize(14); doc.text(`Pemantauan KOL 1 (1 - 10 Hari) - Area Medan 1`, 14, 15);
+                        doc.setFontSize(10); doc.text(`Cabang: ${selectedCabang} | Outlet: ${selectedOutlet}`, 14, 22);
+                        
+                        const tableColumn = ["No. Kontrak", "Nama Nasabah", "Produk", "Jatuh Tempo", "OSL", "Kol", "Tunggakan", "Cabang", "Outlet"];
+                        const tableRows = filteredData.map(item => [
+                            item.NO_KONTRAK || '-', item.CUSTOMER_NM || '-', item['SUB PRODUK'] || '-', item.TGL_JATUH_TEMPO || '-',
+                            formatRupiah(item.OSL || 0), item.KOLEKTIBILITAS || '-', `${item.HARI_TUNGGAKAN || 0} Hr`, item.CABANG || '-', item.OUTLET || '-'
+                        ]);
+
+                        doc.autoTable({ head: [tableColumn], body: tableRows, startY: 28, styles: { fontSize: 8 }, headStyles: { fillColor: [202, 138, 4] } });
+                        doc.save(`Data_KOL1.pdf`);
+                        showToast('File PDF berhasil didownload!');
+                    } catch (error) { showToast('Gagal memproses PDF.', 'error'); }
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4">
+                            <div><h2 className="text-2xl font-bold text-gray-800">Pemantauan KOL 1 (1 - 10 Hari)</h2><p className="text-sm text-gray-500">Data bersumber dari upload CSV Admin</p></div>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
+                                <button onClick={downloadPDF} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center space-x-2"><i className="fas fa-file-pdf"></i><span>Download PDF</span></button>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                    <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Cabang:</label>
+                                    <select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-32 p-2 border rounded-lg text-sm outline-none bg-white">{cabangList.map((c, i) => <option key={i} value={c}>{c}</option>)}</select>
+                                </div>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                    <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Outlet:</label>
+                                    <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-32 p-2 border rounded-lg text-sm outline-none bg-white">{outletList.map((o, i) => <option key={i} value={o}>{o}</option>)}</select>
+                                </div>
+                                <div className="relative w-full sm:w-48"><i className="fas fa-search absolute left-3 top-2.5 text-gray-400"></i><input type="text" placeholder="Cari Nasabah..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm outline-none"/></div>
+                            </div>
+                        </div>
+                        {kol1Data.length === 0 ? (
+                            <div className={`bg-yellow-50 text-yellow-800 p-8 text-center rounded-xl border border-yellow-200 border-t-4 border-t-yellow-500`}><i className={`fas fa-folder-open text-4xl mb-3`}></i><h3 className="text-lg font-bold">Belum Ada Data KOL 1</h3></div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200 border-t-4 border-t-blue-500 flex items-center space-x-4"><div className="p-3 bg-white text-blue-600 rounded-lg shadow-sm"><i className="fas fa-users text-2xl"></i></div><div><p className="text-sm text-blue-700 font-medium">Total Nasabah KOL 1</p><p className="text-xl font-bold text-gray-800">{filteredData.length}</p></div></div>
+                                    <div className={`bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-xl shadow-sm border border-yellow-200 border-t-4 border-t-yellow-500 flex items-center space-x-4`}><div className={`p-3 bg-white text-yellow-600 rounded-lg shadow-sm`}><i className={`fas fa-exclamation-circle text-2xl`}></i></div><div><p className={`text-sm text-yellow-700 font-medium`}>Total Outstanding (OSL)</p><p className={`text-xl font-bold text-gray-800`}>{formatRupiah(totalOut)}</p></div></div>
+                                </div>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse text-sm">
+                                            <thead><tr className="bg-gray-50 text-gray-600 border-b"><th className="p-3 font-medium">No. Kontrak</th><th className="p-3 font-medium">Nama Nasabah</th><th className="p-3 font-medium">Produk</th><th className="p-3 font-medium whitespace-nowrap">Jatuh Tempo</th><th className="p-3 font-medium">Outstanding (OSL)</th><th className="p-3 font-medium text-center">Kol</th><th className="p-3 font-medium text-center">Tunggakan</th><th className="p-3 font-medium">Cabang</th><th className="p-3 font-medium">Outlet</th></tr></thead>
+                                            <tbody>
+                                                {filteredData.map((item, index) => (
+                                                    <tr key={index} className="border-b hover:bg-yellow-50"><td className="p-3 font-medium text-gray-800 whitespace-nowrap">{item.NO_KONTRAK}</td><td className="p-3 text-gray-700">{item.CUSTOMER_NM}</td><td className="p-3 text-gray-600 whitespace-nowrap">{item['SUB PRODUK']}</td><td className="p-3 text-gray-600 whitespace-nowrap">{item.TGL_JATUH_TEMPO}</td><td className="p-3 font-semibold text-gray-800">{formatRupiah(item.OSL)}</td><td className="p-3 text-center"><span className="px-2 py-1 rounded text-xs font-bold bg-yellow-200 text-yellow-800">{item.KOLEKTIBILITAS || '-'}</span></td><td className="p-3 text-center text-red-600 font-medium whitespace-nowrap">{item.HARI_TUNGGAKAN} Hari</td><td className="p-3 text-gray-600 whitespace-nowrap">{item.CABANG}</td><td className="p-3 text-gray-600 whitespace-nowrap">{item.OUTLET}</td></tr>
+                                                ))}
+                                                {filteredData.length === 0 && <tr><td colSpan="9" className="p-6 text-center text-gray-500">Tidak ada data ditemukan.</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 );
             };
@@ -482,15 +599,17 @@
                 });
                 
                 const totalOut = filteredData.reduce((sum, item) => sum + (Number(item.UP) || 0), 0);
+
                 const colorConfig = {
-                    lar: { bg: 'bg-orange-50', border: 'border-orange-100', text: 'text-orange-800', iconBg: 'bg-orange-200', iconText: 'text-orange-700', badge: 'bg-orange-500' },
-                    npl: { bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-800', iconBg: 'bg-red-200', iconText: 'text-red-700', badge: 'bg-red-600' }
+                    lar: { base: 'orange', bg: 'bg-orange-50', border: 'border-orange-200 border-t-4 border-t-orange-500', text: 'text-orange-800', iconBg: 'bg-white shadow-sm', iconText: 'text-orange-600' },
+                    npl: { base: 'red', bg: 'bg-red-50', border: 'border-red-200 border-t-4 border-t-red-500', text: 'text-red-800', iconBg: 'bg-white shadow-sm', iconText: 'text-red-600' }
                 };
                 const conf = colorConfig[type] || colorConfig.lar;
 
                 const downloadPDF = () => {
-                    if (typeof window.jspdf === 'undefined') return showToast('Library PDF belum dimuat. Refresh halaman.', 'error');
+                    if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') return showToast('Library PDF belum dimuat. Refresh halaman.', 'error');
                     if (filteredData.length === 0) return showToast('Tidak ada data didownload', 'error');
+                    
                     try {
                         const doc = new window.jspdf.jsPDF('landscape');
                         doc.setFontSize(14); doc.text(`Pemantauan Khusus ${title} - Area Medan 1`, 14, 15);
@@ -510,32 +629,35 @@
 
                 return (
                     <div className="space-y-6">
-                        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 border-b pb-4">
-                            <div><h2 className="text-2xl font-bold text-gray-800">Pemantauan {title}</h2><p className="text-sm text-gray-500">Data bersumber dari upload CSV Admin</p></div>
-                            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
-                                <button onClick={downloadPDF} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center space-x-2"><i className="fas fa-file-pdf"></i><span>Download PDF</span></button>
-                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Cabang:</label><select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-40 p-2 border rounded-lg bg-white text-sm">{cabangList.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}</select></div>
-                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Outlet:</label><select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-40 p-2 border rounded-lg bg-white text-sm">{outletList.map((outlet, idx) => <option key={idx} value={outlet}>{outlet}</option>)}</select></div>
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4">
+                            <div><h2 className="text-2xl font-bold text-gray-800">Pemantauan Khusus {title}</h2><p className="text-sm text-gray-500">Data bersumber dari upload CSV Admin</p></div>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
+                                <button onClick={downloadPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2"><i className="fas fa-file-pdf"></i><span>Download PDF</span></button>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Cabang:</label><select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-32 p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm">{cabangList.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}</select></div>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Outlet:</label><select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full sm:w-32 p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm">{outletList.map((outlet, idx) => <option key={idx} value={outlet}>{outlet}</option>)}</select></div>
                             </div>
                         </div>
+
                         {data.length === 0 ? (
-                            <div className={`${conf.bg} ${conf.text} p-8 text-center rounded-xl border ${conf.border}`}><i className={`fas fa-folder-open text-4xl mb-3`}></i><h3 className="text-lg font-bold">Belum Ada Data {title}</h3></div>
+                            <div className={`${conf.bg} ${conf.text} p-8 text-center rounded-xl border ${conf.border}`}><i className={`fas fa-folder-open text-4xl mb-3`}></i><h3 className="text-lg font-bold">Belum Ada Data {title}</h3><p className="text-sm mt-1">Silakan minta Admin upload CSV.</p></div>
                         ) : (
                             <>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4"><div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><i className="fas fa-users text-2xl"></i></div><div><p className="text-sm text-gray-500 font-medium">Total Nasabah {title}</p><p className="text-xl font-bold text-gray-800">{filteredData.length} Nasabah</p></div></div>
-                                    <div className={`${conf.bg} p-6 rounded-xl shadow-sm border ${conf.border} flex items-center space-x-4`}><div className={`p-3 ${conf.iconBg} ${conf.iconText} rounded-lg`}><i className={`fas ${icon} text-2xl`}></i></div><div><p className={`text-sm ${conf.iconText} font-medium`}>Total Outstanding (UP) {title}</p><p className={`text-xl font-bold ${conf.text}`}>{formatRupiah(totalOut)}</p></div></div>
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200 border-t-4 border-t-blue-500 flex items-center space-x-4"><div className="p-3 bg-white text-blue-600 rounded-lg shadow-sm"><i className="fas fa-users text-2xl"></i></div><div><p className="text-sm text-blue-700 font-medium">Total Nasabah {title}</p><p className="text-xl font-bold text-gray-800">{filteredData.length}</p></div></div>
+                                    <div className={`bg-gradient-to-br from-${conf.base}-50 to-${conf.base}-100 p-6 rounded-xl shadow-sm border ${conf.border} flex items-center space-x-4`}><div className={`p-3 ${conf.iconBg} ${conf.iconText} rounded-lg`}><i className={`fas ${icon} text-2xl`}></i></div><div><p className={`text-sm ${conf.iconText} font-medium`}>Total Outstanding (UP) {title}</p><p className={`text-xl font-bold text-gray-800`}>{formatRupiah(totalOut)}</p></div></div>
                                 </div>
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto mt-6">
-                                    <table className="w-full text-left border-collapse text-sm">
-                                        <thead><tr className="bg-gray-50 text-gray-600 border-b"><th className="p-4 font-medium">No. Kontrak</th><th className="p-4 font-medium">Nama Nasabah</th><th className="p-4 font-medium">Produk</th><th className="p-4 font-medium">Outstanding (UP)</th><th className="p-4 font-medium text-center">Kol</th><th className="p-4 font-medium text-center">Tunggakan</th><th className="p-4 font-medium">Cabang</th><th className="p-4 font-medium">Outlet</th></tr></thead>
-                                        <tbody>
-                                            {filteredData.map((item, index) => (
-                                                <tr key={index} className="border-b hover:bg-gray-50"><td className="p-4 font-medium text-gray-800 whitespace-nowrap">{item.NO_KONTRAK}</td><td className="p-4 text-gray-700">{item.CUSTOMER_NM}</td><td className="p-4 text-gray-600 whitespace-nowrap">{item['SUB PRODUK']}</td><td className="p-4 font-semibold text-gray-800">{formatRupiah(item.UP)}</td><td className="p-4 text-center"><span className="px-2 py-1 rounded text-xs font-bold bg-gray-200">{item.KOLEKTIBILITAS || '-'}</span></td><td className="p-4 text-center text-red-600 font-medium whitespace-nowrap">{item.HARI_TUNGGAKAN} Hari</td><td className="p-4 text-gray-600 whitespace-nowrap">{item.CABANG}</td><td className="p-4 text-gray-600 whitespace-nowrap">{item.OUTLET}</td></tr>
-                                            ))}
-                                            {filteredData.length === 0 && <tr><td colSpan="8" className="p-6 text-center text-gray-500">Tidak ada data ditemukan.</td></tr>}
-                                        </tbody>
-                                    </table>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse text-sm">
+                                            <thead><tr className="bg-gray-50 text-gray-600 border-b"><th className="p-3 font-medium">No. Kontrak</th><th className="p-3 font-medium">Nama Nasabah</th><th className="p-3 font-medium">Produk</th><th className="p-3 font-medium">Outstanding (UP)</th><th className="p-3 font-medium text-center">Kol</th><th className="p-3 font-medium text-center">Tunggakan</th><th className="p-3 font-medium">Cabang</th><th className="p-3 font-medium">Outlet</th></tr></thead>
+                                            <tbody>
+                                                {filteredData.map((item, index) => (
+                                                    <tr key={index} className="border-b hover:bg-gray-50"><td className="p-3 font-medium text-gray-800 whitespace-nowrap">{item.NO_KONTRAK}</td><td className="p-3 text-gray-700">{item.CUSTOMER_NM}</td><td className="p-3 text-gray-600 whitespace-nowrap">{item['SUB PRODUK']}</td><td className="p-3 font-semibold text-gray-800">{formatRupiah(item.UP)}</td><td className="p-3 text-center"><span className="px-2 py-1 rounded text-xs font-bold bg-gray-200 text-gray-800">{item.KOLEKTIBILITAS || '-'}</span></td><td className="p-3 text-center text-red-600 font-medium whitespace-nowrap">{item.HARI_TUNGGAKAN} Hari</td><td className="p-3 text-gray-600 whitespace-nowrap">{item.CABANG}</td><td className="p-3 text-gray-600 whitespace-nowrap">{item.OUTLET}</td></tr>
+                                                ))}
+                                                {filteredData.length === 0 && <tr><td colSpan="8" className="p-6 text-center text-gray-500">Tidak ada data.</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </>
                         )}
@@ -543,15 +665,12 @@
                 );
             };
 
-            const LarView = () => <TableNasabahView title="Data LAR 11 sd 30 Hari" data={larData} type="lar" icon="fa-exclamation-circle" />;
-            const NplView = () => <TableNasabahView title="Data NPL (KOL 3 sd 5)" data={nplData} type="npl" icon="fa-exclamation-triangle" />;
-
             const ReportRealisasiView = () => {
                 const [selectedCabang, setSelectedCabang] = useState('Semua');
                 const cabangList = [...new Set(reportData.map(item => item.NAMA_CABANG).filter(Boolean))];
 
                 const downloadPDFReport = () => {
-                    if (typeof window.jspdf === 'undefined') return showToast('Library PDF belum dimuat.', 'error');
+                    if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') return showToast('Library PDF belum dimuat.', 'error');
                     if (reportData.length === 0) return showToast('Tidak ada data untuk didownload', 'error');
 
                     try {
@@ -561,7 +680,14 @@
 
                         if (selectedCabang === 'Semua') {
                             const tableColumn = ["Cabang", "Tgt OSL", "Real OSL", "Capai OSL", "Tgt NPL", "Real NPL", "Capai NPL", "Tgt LAR", "Real LAR", "Capai LAR", "Tgt Rata2", "Real Rata2", "Capai Rata2", "Tgt NOA", "Real NOA", "Capai NOA"];
-                            const tableRows = reportData.map(item => [ item.NAMA_CABANG || '-', item.TARGET_OSL || '-', item.REALISASI_OSL || '-', item.PENCAPAIAN_OSL || '-', item.TARGET_NPL || '-', item.REALISASI_NPL || '-', item.PENCAPAIAN_NPL || '-', item.TARGET_LAR || '-', item.REALISASI_LAR || '-', item.PENCAPAIAN_LAR || '-', item.TARGET_RATA2 || '-', item.REALISASI_RATA2 || '-', item.PENCAPAIAN_RATA2 || '-', item.TARGET_NOA || '-', item.REALISASI_NOA || '-', item.PENCAPAIAN_NOA || '-' ]);
+                            const tableRows = reportData.map(item => [
+                                item.NAMA_CABANG || '-',
+                                item.TARGET_OSL || '-', item.REALISASI_OSL || '-', item.PENCAPAIAN_OSL || '-',
+                                item.TARGET_NPL || '-', item.REALISASI_NPL || '-', item.PENCAPAIAN_NPL || '-',
+                                item.TARGET_LAR || '-', item.REALISASI_LAR || '-', item.PENCAPAIAN_LAR || '-',
+                                item.TARGET_RATA2 || '-', item.REALISASI_RATA2 || '-', item.PENCAPAIAN_RATA2 || '-',
+                                item.TARGET_NOA || '-', item.REALISASI_NOA || '-', item.PENCAPAIAN_NOA || '-'
+                            ]);
                             doc.autoTable({ head: [tableColumn], body: tableRows, startY: 28, styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [37, 99, 235] } });
                         } else {
                             const currentData = reportData.find(item => item.NAMA_CABANG === selectedCabang);
@@ -576,6 +702,7 @@
                             ];
                             doc.autoTable({ head: [tableColumn], body: tableRows, startY: 28, styles: { fontSize: 9 }, headStyles: { fillColor: [37, 99, 235] } });
                         }
+                        
                         doc.save(`Report_Realisasi_${selectedCabang === 'Semua' ? 'Semua_Cabang' : selectedCabang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
                         showToast('File PDF Report berhasil didownload!');
                     } catch (error) { showToast('Gagal memproses PDF.', 'error'); }
@@ -585,29 +712,31 @@
 
                 return (
                     <div className="space-y-6">
-                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b pb-4">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
                             <div><h2 className="text-2xl font-bold text-gray-800">Report Realisasi Mikro</h2><p className="text-sm text-gray-500">Pencapaian Target dan Realisasi per Cabang.</p></div>
                             <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                                 <button onClick={downloadPDFReport} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center space-x-2"><i className="fas fa-file-pdf"></i> <span>Download PDF</span></button>
-                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Pilih Cabang:</label><select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-48 p-2 border rounded-lg bg-white text-sm"><option value="Semua">-- Semua Cabang --</option>{cabangList.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}</select></div>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600 whitespace-nowrap">Cabang:</label><select value={selectedCabang} onChange={(e) => setSelectedCabang(e.target.value)} className="w-full sm:w-48 p-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"><option value="Semua">-- Semua Cabang --</option>{cabangList.map((cabang, idx) => <option key={idx} value={cabang}>{cabang}</option>)}</select></div>
                             </div>
                         </div>
 
                         {reportData.length === 0 ? (
-                            <div className="bg-blue-50 text-blue-800 p-8 text-center rounded-xl border border-blue-100"><i className="fas fa-chart-line text-4xl mb-3"></i><h3 className="text-lg font-bold">Belum Ada Data Report</h3></div>
+                            <div className="bg-blue-50 text-blue-800 p-8 text-center rounded-xl border border-blue-200 border-t-4 border-t-blue-500"><i className="fas fa-chart-line text-4xl mb-3"></i><h3 className="text-lg font-bold">Belum Ada Data Report</h3></div>
                         ) : selectedCabang === 'Semua' ? (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto mt-6">
-                                <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
-                                    <thead>
-                                        <tr className="bg-blue-600 text-white border-b"><th className="p-3 font-medium" rowSpan="2">Nama Cabang</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">OSL Gros Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">NPL Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">LAR Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">Rata-rata Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">Nasabah Baru</th></tr>
-                                        <tr className="bg-blue-50 text-blue-800 border-b"><th className="p-2 border-l border-blue-100 font-medium text-right">Target</th><th className="p-2 border-l border-blue-100 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-100 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-200 font-medium text-right">Target</th><th className="p-2 border-l border-blue-200 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-200 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-100 font-medium text-right">Target</th><th className="p-2 border-l border-blue-100 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-100 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-200 font-medium text-right">Target</th><th className="p-2 border-l border-blue-200 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-200 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-100 font-medium text-right">Target</th><th className="p-2 border-l border-blue-100 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-100 font-medium text-center">Capai</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {reportData.map((item, index) => (
-                                            <tr key={index} className="border-b hover:bg-gray-50"><td className="p-3 font-bold text-gray-700">{item.NAMA_CABANG}</td><td className="p-2 border-l text-right text-gray-600">{item.TARGET_OSL}</td><td className="p-2 border-l text-right text-gray-600">{item.REALISASI_OSL}</td><td className="p-2 border-l text-center font-bold text-blue-600">{item.PENCAPAIAN_OSL}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.TARGET_NPL}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.REALISASI_NPL}</td><td className="p-2 border-l text-center font-bold text-red-600 bg-gray-50">{item.PENCAPAIAN_NPL}</td><td className="p-2 border-l text-right text-gray-600">{item.TARGET_LAR}</td><td className="p-2 border-l text-right text-gray-600">{item.REALISASI_LAR}</td><td className="p-2 border-l text-center font-bold text-orange-600">{item.PENCAPAIAN_LAR}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.TARGET_RATA2}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.REALISASI_RATA2}</td><td className="p-2 border-l text-center font-bold text-green-600 bg-gray-50">{item.PENCAPAIAN_RATA2}</td><td className="p-2 border-l text-right text-gray-600">{item.TARGET_NOA}</td><td className="p-2 border-l text-right text-gray-600">{item.REALISASI_NOA}</td><td className="p-2 border-l text-center font-bold text-purple-600">{item.PENCAPAIAN_NOA}</td></tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+                                        <thead>
+                                            <tr className="bg-blue-600 text-white border-b"><th className="p-3 font-medium" rowSpan="2">Nama Cabang</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">OSL Gros Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">NPL Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">LAR Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">Rata-rata Mikro</th><th className="p-2 font-medium text-center border-l border-blue-500" colSpan="3">Nasabah Baru</th></tr>
+                                            <tr className="bg-blue-50 text-blue-800 border-b"><th className="p-2 border-l border-blue-100 font-medium text-right">Target</th><th className="p-2 border-l border-blue-100 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-100 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-200 font-medium text-right">Target</th><th className="p-2 border-l border-blue-200 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-200 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-100 font-medium text-right">Target</th><th className="p-2 border-l border-blue-100 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-100 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-200 font-medium text-right">Target</th><th className="p-2 border-l border-blue-200 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-200 font-medium text-center">Capai</th><th className="p-2 border-l border-blue-100 font-medium text-right">Target</th><th className="p-2 border-l border-blue-100 font-medium text-right">Realisasi</th><th className="p-2 border-l border-blue-100 font-medium text-center">Capai</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {reportData.map((item, index) => (
+                                                <tr key={index} className="border-b hover:bg-gray-50"><td className="p-3 font-bold text-gray-700">{item.NAMA_CABANG}</td><td className="p-2 border-l text-right text-gray-600">{item.TARGET_OSL}</td><td className="p-2 border-l text-right text-gray-600">{item.REALISASI_OSL}</td><td className="p-2 border-l text-center font-bold text-blue-600">{item.PENCAPAIAN_OSL}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.TARGET_NPL}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.REALISASI_NPL}</td><td className="p-2 border-l text-center font-bold text-red-600 bg-gray-50">{item.PENCAPAIAN_NPL}</td><td className="p-2 border-l text-right text-gray-600">{item.TARGET_LAR}</td><td className="p-2 border-l text-right text-gray-600">{item.REALISASI_LAR}</td><td className="p-2 border-l text-center font-bold text-orange-600">{item.PENCAPAIAN_LAR}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.TARGET_RATA2}</td><td className="p-2 border-l text-right text-gray-600 bg-gray-50">{item.REALISASI_RATA2}</td><td className="p-2 border-l text-center font-bold text-green-600 bg-gray-50">{item.PENCAPAIAN_RATA2}</td><td className="p-2 border-l text-right text-gray-600">{item.TARGET_NOA}</td><td className="p-2 border-l text-right text-gray-600">{item.REALISASI_NOA}</td><td className="p-2 border-l text-center font-bold text-purple-600">{item.PENCAPAIAN_NOA}</td></tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         ) : !currentData ? (
                             <div className="p-8 text-center text-gray-500">Cabang yang dipilih tidak memiliki data.</div>
@@ -625,87 +754,104 @@
             };
 
             const Dashboard = ({ type }) => {
+                const isReal = type === 'realisasi';
+                const sourceData = isReal ? data : estimasiData;
+                const title = isReal ? 'Dashboard Realisasi (Admin)' : 'Dashboard Estimasi (AO)';
                 const todayStr = new Date().toISOString().split('T')[0];
-                const [selectedAO, setSelectedAO] = useState('Semua');
+                const [selectedPerson, setSelectedPerson] = useState('Semua');
                 const [startDate, setStartDate] = useState(todayStr); 
                 const [endDate, setEndDate] = useState(todayStr); 
                 
-                const currentDataArr = type === 'realisasi' ? data : estimasiData;
-                
-                // Extract list of officers for the dropdown based on what type of dashboard it is
-                const personListData = currentDataArr.map(item => item.Petugas).filter(Boolean);
-                const combinedList = ['Semua', ...new Set([...personListData, ...(type === 'realisasi' ? adminList : aoList)])];
-                
-                const activePersons = new Set(currentDataArr.map(item => item.Petugas));
-                const inactivePersons = (type === 'realisasi' ? adminList : aoList).filter(p => !activePersons.has(p));
+                const personListData = sourceData.map(item => item.Petugas).filter(Boolean);
+                const masterList = isReal ? adminList : aoList;
+                const combinedList = ['Semua', ...new Set([...personListData, ...masterList])];
+                const activePersons = new Set(sourceData.map(item => item.Petugas));
+                const inactivePersons = masterList.filter(p => !activePersons.has(p));
 
-                const filteredData = currentDataArr.filter(item => {
-                    const matchPerson = selectedAO === 'Semua' || item.Petugas === selectedAO;
+                const filteredData = sourceData.filter(item => {
+                    const matchPerson = selectedPerson === 'Semua' || item.Petugas === selectedPerson;
                     const matchDate = item.Tanggal >= startDate && item.Tanggal <= endDate;
                     return matchPerson && matchDate;
                 });
 
                 const totalPlafon = filteredData.reduce((sum, item) => sum + (Number(item.Plafon) || 0), 0);
-                
                 const productStats = filteredData.reduce((acc, item) => {
                     const prod = item.Produk || 'Belum Kategori';
                     if (!acc[prod]) acc[prod] = { count: 0, amount: 0 };
                     acc[prod].count += 1; acc[prod].amount += (Number(item.Plafon) || 0); return acc;
                 }, {});
 
-                const labelTitle = type === 'realisasi' ? 'Realisasi Pencairan (Admin)' : 'Estimasi Pencairan (AO)';
-                const labelPerson = type === 'realisasi' ? 'Admin Mikro' : 'Petugas (AO)';
-
                 return (
                     <div className="space-y-6">
-                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b pb-4">
-                            <div><h2 className="text-2xl font-bold text-gray-800">Dashboard {labelTitle}</h2><p className="text-sm text-gray-500 mt-1">Data ditampilkan berdasar rentang tanggal yang dipilih.</p></div>
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+                            <div><h2 className="text-2xl font-bold text-gray-800">{title}</h2><p className="text-sm text-gray-500 mt-1">Rentang Tanggal: {startDate} s/d {endDate}</p></div>
                             <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Tgl:</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg bg-white text-sm" /><span className="text-gray-400">-</span><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-lg bg-white text-sm" /></div>
-                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600 whitespace-nowrap">{labelPerson}:</label><select value={selectedAO} onChange={(e) => setSelectedAO(e.target.value)} className="w-full sm:w-40 p-2 border rounded-lg bg-white text-sm">{combinedList.map((p, idx) => <option key={idx} value={p}>{p}</option>)}</select></div>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">Filter Tgl:</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg text-sm bg-white" /><span className="text-gray-400">-</span><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-lg text-sm bg-white" /></div>
+                                <div className="flex items-center space-x-2 w-full sm:w-auto"><label className="text-sm font-medium text-gray-600">{isReal ? 'Admin:' : 'AO:'}</label><select value={selectedPerson} onChange={(e) => setSelectedPerson(e.target.value)} className="w-full sm:w-40 p-2 border rounded-lg text-sm bg-white">{combinedList.map((p, idx) => <option key={idx} value={p}>{p}</option>)}</select></div>
                             </div>
                         </div>
-
                         {inactivePersons.length > 0 && (
-                            <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg flex items-start space-x-3"><div className="text-orange-500 mt-0.5"><i className="fas fa-exclamation-circle text-lg"></i></div><div className="w-full"><h3 className="text-sm font-bold text-orange-800 mb-1">{labelPerson} Belum Melakukan {type === 'realisasi' ? 'Pencairan' : 'Estimasi'}</h3><div className="flex flex-wrap gap-2 mt-2">{inactivePersons.map((p, idx) => <span key={idx} className="bg-orange-100 text-orange-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-orange-200">{p}</span>)}</div></div></div>
+                            <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg shadow-sm flex items-start space-x-3"><div className="text-orange-500 mt-0.5"><i className="fas fa-exclamation-circle text-lg"></i></div><div className="w-full"><h3 className="text-sm font-bold text-orange-800 mb-1">{isReal ? 'Admin' : 'AO'} Belum Melakukan Input</h3><div className="flex flex-wrap gap-2 mt-2">{inactivePersons.map((p, idx) => <span key={idx} className="bg-orange-100 text-orange-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-orange-200">{p}</span>)}</div></div></div>
                         )}
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4"><div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><i className="fas fa-users text-2xl"></i></div><div><p className="text-sm text-gray-500 font-medium">Total Nasabah (Rentang Terpilih)</p><p className="text-2xl font-bold text-gray-800">{filteredData.length}</p></div></div>
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4"><div className="p-3 bg-green-100 text-green-600 rounded-lg"><i className="fas fa-money-bill-wave text-2xl"></i></div><div><p className="text-sm text-gray-500 font-medium">Total Nominal (Rentang Terpilih)</p><p className="text-xl md:text-2xl font-bold text-gray-800">{formatRupiah(totalPlafon)}</p></div></div>
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200 border-t-4 border-t-blue-500 flex items-center space-x-4"><div className="p-3 bg-white text-blue-600 rounded-lg shadow-sm"><i className="fas fa-users text-2xl"></i></div><div><p className="text-sm text-blue-700 font-medium">Total Nasabah</p><p className="text-2xl font-bold text-gray-800">{filteredData.length}</p></div></div>
+                            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-sm border border-green-200 border-t-4 border-t-green-500 flex items-center space-x-4"><div className="p-3 bg-white text-green-600 rounded-lg shadow-sm"><i className="fas fa-money-bill-wave text-2xl"></i></div><div><p className="text-sm text-green-700 font-medium">Total Nominal</p><p className="text-xl md:text-2xl font-bold text-gray-800">{formatRupiah(totalPlafon)}</p></div></div>
                         </div>
-
-                        <div className="mt-8">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4">Pencapaian Per Produk</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {Object.keys(productStats).length > 0 ? ( Object.entries(productStats).map(([prod, stats], idx) => ( <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><div className="flex justify-between items-start mb-2"><span className="text-sm font-semibold text-gray-700 uppercase">{prod}</span><span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">{stats.count} Nsbh</span></div><p className="text-lg font-bold text-gray-800">{formatRupiah(stats.amount)}</p></div> )) ) : ( <div className="col-span-full p-4 bg-gray-50 text-gray-500 text-center rounded-lg border border-dashed border-gray-200">Tidak ada data di rentang tanggal ini.</div> )}
-                            </div>
-                        </div>
+                        <div className="mt-8"><h3 className="text-lg font-bold text-gray-800 mb-4">Pencapaian Per Produk</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {Object.keys(productStats).length > 0 ? ( Object.entries(productStats).map(([prod, stats], idx) => {
+                                const colors = ['border-blue-400', 'border-green-400', 'border-purple-400', 'border-orange-400', 'border-pink-400', 'border-teal-400'];
+                                return ( <div key={idx} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 ${colors[idx % colors.length]}`}><div className="flex justify-between items-start mb-2"><span className="text-[11px] font-bold text-gray-700 uppercase leading-tight">{prod}</span><span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-bold">{stats.count} Nsbh</span></div><p className="text-lg font-black text-gray-800 tracking-tight">{formatRupiah(stats.amount)}</p></div> ); 
+                            }) ) : ( <div className="col-span-full p-4 bg-gray-50 text-gray-500 text-center rounded-lg border border-dashed border-gray-200">Tidak ada data di rentang tanggal ini.</div> )}
+                        </div></div>
                     </div>
                 );
             };
 
-            const FormPencairan = ({ type }) => {
-                const isRealisasi = type === 'realisasi';
-                const initialPetugas = isRealisasi ? (adminList.length > 0 ? adminList[0] : '') : (aoList.length > 0 ? aoList[0] : '');
-                const [form, setForm] = useState({ Tanggal: new Date().toISOString().split('T')[0], Nama: '', NoKredit: '', Produk: productList.length > 0 ? productList[0] : '', Plafon: '', Tenor: '3', Petugas: initialPetugas });
+            const FormInput = ({ type }) => {
+                const isReal = type === 'realisasi';
+                const initialForm = { Tanggal: new Date().toISOString().split('T')[0], Nama: '', NoKredit: '', Produk: productList.length > 0 ? productList[0] : '', Plafon: '', Tenor: '3', Petugas: (isReal ? (adminList.length===1?adminList[0]:'') : (aoList.length===1?aoList[0]:'')) };
+                const [form, setForm] = useState(initialForm);
+                const listPerson = isReal ? adminList : aoList;
+                
                 const handleChange = (e) => setForm({...form, [e.target.name]: e.target.value});
-                const handleSubmit = (e) => { e.preventDefault(); submitData(form, type); };
+                const handleSubmit = async (e) => {
+                    e.preventDefault();
+                    setIsLoading(true);
+                    
+                    const formData = {...form};
+                    if(!isReal) { formData.NoKredit = '-'; formData.Tenor = '-'; } 
+                    
+                    const sourceData = isReal ? data : estimasiData;
+                    const setter = isReal ? setData : setEstimasiData;
+                    const storageKey = isReal ? 'mikroData' : 'estimasiData';
+                    
+                    const newData = [...sourceData, formData];
+                    setter(newData); localStorage.setItem(storageKey, JSON.stringify(newData));
+
+                    if (sheetUrl) {
+                        try {
+                            await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: type === 'realisasi' ? 'add_pencairan' : 'add_estimasi', data: formData }) });
+                            showToast(`Data ${type} berhasil disimpan ke Cloud Database!`);
+                        } catch (error) { showToast('Gagal mengirim ke Cloud Database.', 'error'); }
+                    }
+                    setIsLoading(false);
+                    setActiveTab(type === 'realisasi' ? (userRole === 'admin' ? 'dataReal' : 'dashReal') : (userRole === 'admin' ? 'dataEst' : 'dashEst'));
+                };
 
                 return (
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 max-w-2xl">
-                        <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4">Formulir {isRealisasi ? 'Pencairan Baru (Admin)' : 'Estimasi Baru (AO)'}</h2>
+                        <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4">Formulir {isReal ? 'Realisasi Pencairan (Admin)' : 'Estimasi Pencairan (AO)'}</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tanggal {isRealisasi ? 'Pencairan' : 'Estimasi'}</label><input type="date" name="Tanggal" value={form.Tanggal} onChange={handleChange} required className="w-full p-2.5 border rounded-lg" /></div>
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nama {isRealisasi ? 'Admin Mikro' : 'Petugas (AO)'}</label>
-                                    {(isRealisasi ? adminList : aoList).length > 0 ? ( <select name="Petugas" value={form.Petugas} onChange={handleChange} required className="w-full p-2.5 border rounded-lg"><option value="" disabled>-- Pilih Nama --</option>{(isRealisasi ? adminList : aoList).map((p, idx) => <option key={idx} value={p}>{p}</option>)}</select> ) : ( <input type="text" name="Petugas" value={form.Petugas} onChange={handleChange} required placeholder="Ketik Manual" className="w-full p-2.5 border rounded-lg" /> )}
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tanggal</label><input type="date" name="Tanggal" value={form.Tanggal} onChange={handleChange} required className="w-full p-2.5 border rounded-lg bg-gray-50 outline-none" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nama {isReal ? 'Admin Mikro' : 'Petugas AO'}</label>
+                                    {listPerson.length > 0 ? ( <select name="Petugas" value={form.Petugas} onChange={handleChange} required className="w-full p-2.5 border rounded-lg bg-white outline-none"><option value="" disabled>-- Pilih Nama --</option>{listPerson.map((p, idx) => <option key={idx} value={p}>{p}</option>)}</select> ) : ( <input type="text" name="Petugas" value={form.Petugas} onChange={handleChange} required placeholder="Ketik Manual" className="w-full p-2.5 border rounded-lg outline-none" /> )}
                                 </div>
-                                <div className={`md:col-span-2`}><label className="block text-sm font-medium text-gray-700 mb-1">Nama Nasabah</label><input type="text" name="Nama" value={form.Nama} onChange={handleChange} required placeholder="Nama Lengkap Nasabah" className="w-full p-2.5 border rounded-lg" /></div>
-                                {isRealisasi && ( <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nomor Kredit</label><input type="text" name="NoKredit" value={form.NoKredit} onChange={handleChange} required placeholder="Masukkan Nomor Kredit" className="w-full p-2.5 border rounded-lg" /></div> )}
-                                <div className={isRealisasi ? "md:col-span-2" : ""}><label className="block text-sm font-medium text-gray-700 mb-1">Jenis Produk</label><select name="Produk" value={form.Produk} onChange={handleChange} required className="w-full p-2.5 border rounded-lg">{productList.map((prod, idx) => <option key={idx} value={prod}>{prod}</option>)}</select></div>
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nominal {isRealisasi ? 'Plafon' : 'Estimasi'} (Rp)</label><input type="number" name="Plafon" value={form.Plafon} onChange={handleChange} required placeholder="Contoh: 5000000" className="w-full p-2.5 border rounded-lg" /></div>
-                                {isRealisasi && ( <div><label className="block text-sm font-medium text-gray-700 mb-1">Tenor (Bulan)</label><select name="Tenor" value={form.Tenor} onChange={handleChange} required className="w-full p-2.5 border rounded-lg"><option value="3">3 Bulan</option><option value="4">4 Bulan</option><option value="6">6 Bulan</option><option value="12">12 Bulan</option><option value="18">18 Bulan</option><option value="24">24 Bulan</option><option value="36">36 Bulan</option><option value="48">48 Bulan</option><option value="60">60 Bulan</option></select></div> )}
+                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nama Nasabah</label><input type="text" name="Nama" value={form.Nama} onChange={handleChange} required placeholder="Nama Lengkap Nasabah" className="w-full p-2.5 border rounded-lg outline-none" /></div>
+                                {isReal && <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nomor Kredit</label><input type="text" name="NoKredit" value={form.NoKredit} onChange={handleChange} required placeholder="Masukkan Nomor Kredit" className="w-full p-2.5 border rounded-lg outline-none" /></div>}
+                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Jenis Produk</label><select name="Produk" value={form.Produk} onChange={handleChange} required className="w-full p-2.5 border rounded-lg bg-white outline-none">{productList.map((prod, idx) => <option key={idx} value={prod}>{prod}</option>)}</select></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nominal (Rp)</label><input type="number" name="Plafon" value={form.Plafon} onChange={handleChange} required placeholder="Contoh: 5000000" className="w-full p-2.5 border rounded-lg outline-none" /></div>
+                                {isReal && <div><label className="block text-sm font-medium text-gray-700 mb-1">Tenor (Bulan)</label><select name="Tenor" value={form.Tenor} onChange={handleChange} required className="w-full p-2.5 border rounded-lg bg-white outline-none"><option value="3">3 Bulan</option><option value="4">4 Bulan</option><option value="6">6 Bulan</option><option value="12">12 Bulan</option><option value="18">18 Bulan</option><option value="24">24 Bulan</option><option value="36">36 Bulan</option><option value="48">48 Bulan</option><option value="60">60 Bulan</option></select></div>}
                             </div>
                             <div className="pt-4"><button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center space-x-2 disabled:bg-blue-300">{isLoading ? <><i className="fas fa-spinner fa-spin"></i><span>Menyimpan...</span></> : <><i className="fas fa-save"></i><span>Simpan Data</span></>}</button></div>
                         </form>
@@ -713,95 +859,94 @@
                 );
             };
 
-            const DeleteButton = ({ item, type, onDelete }) => {
-                const [confirm, setConfirm] = useState(false);
-                if (confirm) {
-                    return (
-                        <div className="flex flex-col space-y-1"><span className="text-[10px] text-gray-500">Yakin?</span><div className="flex space-x-1"><button onClick={() => onDelete(item, type)} className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">Ya</button><button onClick={() => setConfirm(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs">Batal</button></div></div>
-                    );
-                }
-                return <button onClick={() => setConfirm(true)} className="text-red-500 hover:text-red-700 p-2"><i className="fas fa-trash"></i></button>;
-            };
-
             const DataTable = ({ type }) => {
-                const isRealisasi = type === 'realisasi';
-                const currentData = isRealisasi ? data : estimasiData;
+                const isReal = type === 'realisasi';
+                const sourceData = isReal ? data : estimasiData;
+                const title = isReal ? 'Data Rekap Realisasi' : 'Data Rekap Estimasi';
                 
                 const todayStr = new Date().toISOString().split('T')[0];
                 const [startDate, setStartDate] = useState(todayStr); 
                 const [endDate, setEndDate] = useState(todayStr); 
                 const [searchTerm, setSearchTerm] = useState('');
 
-                const filteredData = currentData.filter(item => {
-                    const matchSearch = (item.Nama && item.Nama.toLowerCase().includes(searchTerm.toLowerCase())) || ((item.NoKredit) && String(item.NoKredit).includes(searchTerm)) || (item.Petugas && item.Petugas.toLowerCase().includes(searchTerm.toLowerCase()));
+                const filteredData = sourceData.filter(item => {
+                    const matchSearch = (item.Nama && item.Nama.toLowerCase().includes(searchTerm.toLowerCase())) || (item.Petugas && item.Petugas.toLowerCase().includes(searchTerm.toLowerCase())) || (isReal && item.NoKredit && String(item.NoKredit).includes(searchTerm));
                     const matchDate = item.Tanggal >= startDate && item.Tanggal <= endDate;
                     return matchSearch && matchDate;
                 });
 
                 const downloadFilteredPDF = () => {
                     if (typeof window.jspdf === 'undefined') return showToast('Library PDF belum dimuat', 'error');
-                    if (filteredData.length === 0) return showToast('Tidak ada data untuk direntang tanggal ini', 'error');
+                    if (filteredData.length === 0) return showToast('Tidak ada data didownload', 'error');
                     try {
                         const doc = new window.jspdf.jsPDF('landscape');
-                        doc.setFontSize(14); doc.text(`Rekap ${isRealisasi ? 'Pencairan' : 'Estimasi'} Mikro`, 14, 15);
+                        doc.setFontSize(14); doc.text(title, 14, 15);
                         doc.setFontSize(10); doc.text(`Periode: ${startDate} s/d ${endDate}`, 14, 22);
                         
-                        let tableColumn, tableRows;
-                        if (isRealisasi) {
-                            tableColumn = ["Tanggal", "Nama Nasabah", "No Kredit", "Produk", "Plafon", "Tenor", "Admin Mikro"];
-                            tableRows = filteredData.map(item => [ item.Tanggal || '-', item.Nama || '-', item.NoKredit || '-', item.Produk || '-', formatRupiah(item.Plafon || 0), `${item.Tenor} Bln`, item.Petugas || '-' ]);
+                        let tableColumn = []; let tableRows = [];
+                        if(isReal){
+                            tableColumn = ["Tanggal", "Nama Nasabah", "No Kredit", "Produk", "Nominal", "Tenor", "Admin"];
+                            tableRows = filteredData.map(item => [item.Tanggal||'-', item.Nama||'-', item.NoKredit||'-', item.Produk||'-', formatRupiah(item.Plafon||0), `${item.Tenor||0} Bln`, item.Petugas||'-']);
                         } else {
-                            tableColumn = ["Tanggal", "Nama Nasabah", "Produk", "Estimasi (Rp)", "Petugas (AO)"];
-                            tableRows = filteredData.map(item => [ item.Tanggal || '-', item.Nama || '-', item.Produk || '-', formatRupiah(item.Plafon || 0), item.Petugas || '-' ]);
+                            tableColumn = ["Tanggal", "Nama Nasabah", "Produk", "Estimasi (Rp)", "AO"];
+                            tableRows = filteredData.map(item => [item.Tanggal||'-', item.Nama||'-', item.Produk||'-', formatRupiah(item.Plafon||0), item.Petugas||'-']);
                         }
-                        
                         doc.autoTable({ head: [tableColumn], body: tableRows, startY: 28, styles: { fontSize: 8 }, headStyles: { fillColor: [37, 99, 235] } });
-                        doc.save(`Rekap_${isRealisasi ? 'Pencairan' : 'Estimasi'}_${startDate}_sd_${endDate}.pdf`);
+                        doc.save(`Rekap_${type}_${startDate}_sd_${endDate}.pdf`);
                         showToast('File PDF berhasil didownload!');
                     } catch (error) { showToast('Gagal memproses PDF', 'error'); }
                 };
 
+                const deleteData = async (itemToDelete) => {
+                    if(!window.confirm(`Hapus data ${itemToDelete.Nama}?`)) return;
+                    setIsLoading(true);
+                    
+                    const newData = sourceData.filter(d => d !== itemToDelete);
+                    if(isReal) { setData(newData); localStorage.setItem('mikroData', JSON.stringify(newData)); } 
+                    else { setEstimasiData(newData); localStorage.setItem('estimasiData', JSON.stringify(newData)); }
+
+                    if (sheetUrl) {
+                        try {
+                            let tglFormat = itemToDelete.Tanggal; if (tglFormat.includes('T')) tglFormat = tglFormat.split('T')[0];
+                            const payload = isReal ? { action: 'delete_pencairan', NoKredit: itemToDelete.NoKredit, Nama: itemToDelete.Nama, Tanggal: tglFormat } : { action: 'delete_estimasi', Produk: itemToDelete.Produk, Nama: itemToDelete.Nama, Tanggal: tglFormat };
+                            await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+                            showToast('Data dihapus dari Cloud!');
+                        } catch (error) { showToast('Gagal menghapus data dari server.', 'error'); }
+                    }
+                    setIsLoading(false);
+                };
+
                 return (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-6 border-b space-y-4">
-                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                                <div><h2 className="text-xl font-bold text-gray-800">Data {isRealisasi ? 'Realisasi Pencairan' : 'Estimasi AO'}</h2><p className="text-sm text-gray-500">Kelola riwayat data</p></div>
+                        <div className="p-6 border-b border-gray-100 space-y-4">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div><h2 className="text-xl font-bold text-gray-800">{title}</h2></div>
                                 <div className="flex gap-2">
-                                    <button onClick={downloadFilteredPDF} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center space-x-2 font-medium"><i className="fas fa-file-pdf"></i><span>Download PDF</span></button>
-                                    <button onClick={syncFromSheet} disabled={isLoading} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-lg"><i className={`fas fa-sync-alt ${isLoading ? 'fa-spin' : ''}`}></i></button>
+                                    <button onClick={downloadFilteredPDF} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center space-x-2 font-medium"><i className="fas fa-file-pdf"></i><span>PDF</span></button>
+                                    <button onClick={syncFromSheet} disabled={isLoading} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100 transition disabled:opacity-50"><i className={`fas fa-sync-alt ${isLoading ? 'fa-spin' : ''}`}></i></button>
                                 </div>
                             </div>
-                            <div className="flex flex-col md:flex-row gap-4 bg-gray-50 p-3 rounded-lg border">
-                                <div className="flex items-center space-x-2"><label className="text-sm text-gray-600">Dari:</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg text-sm outline-none" /></div>
-                                <div className="flex items-center space-x-2"><label className="text-sm text-gray-600">Sampai:</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-lg text-sm outline-none" /></div>
-                                <div className="relative flex-1"><i className="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" placeholder="Cari Nama/AO..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"/></div>
+                            <div className="flex flex-col md:flex-row gap-4 items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <div className="flex items-center space-x-2 w-full md:w-auto"><label className="text-sm font-medium text-gray-600">Dari:</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg text-sm w-full outline-none bg-white" /></div>
+                                <div className="flex items-center space-x-2 w-full md:w-auto"><label className="text-sm font-medium text-gray-600">Sampai:</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-lg text-sm w-full outline-none bg-white" /></div>
+                                <div className="relative w-full md:flex-1"><i className="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" placeholder="Cari Nama/Petugas..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none text-sm"/></div>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-gray-50 text-gray-600 text-sm border-b">
-                                        <th className="p-4 font-medium">Tanggal</th><th className="p-4 font-medium">Nama Nasabah</th>
-                                        {isRealisasi && <th className="p-4 font-medium">No. Kredit</th>}
-                                        <th className="p-4 font-medium">Produk</th><th className="p-4 font-medium">{isRealisasi ? 'Plafon' : 'Estimasi (Rp)'}</th>
-                                        {isRealisasi && <th className="p-4 font-medium">Tenor</th>}
-                                        <th className="p-4 font-medium">{isRealisasi ? 'Admin Mikro' : 'Petugas (AO)'}</th>
-                                        <th className="p-4 font-medium text-center">Aksi</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr className="bg-gray-50 text-gray-600 text-sm border-b"><th className="p-3 font-medium">Tanggal</th><th className="p-3 font-medium">Nama Nasabah</th><th className="p-3 font-medium">Produk</th><th className="p-3 font-medium">Nominal</th>{isReal && <th className="p-3 font-medium">Tenor</th>}<th className="p-3 font-medium">{isReal ? 'Admin' : 'AO'}</th><th className="p-3 font-medium text-center">Aksi</th></tr></thead>
                                 <tbody>
                                     {filteredData.length > 0 ? filteredData.map((item, index) => (
                                         <tr key={index} className="border-b hover:bg-gray-50 text-sm">
-                                            <td className="p-4 text-gray-700 whitespace-nowrap">{item.Tanggal}</td>
-                                            <td className="p-4 font-medium text-gray-800 whitespace-nowrap">{item.Nama}</td>
-                                            {isRealisasi && <td className="p-4 text-gray-500 whitespace-nowrap">{item.NoKredit}</td>}
-                                            <td className="p-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs">{item.Produk || '-'}</span></td>
-                                            <td className="p-4 text-gray-800 font-semibold whitespace-nowrap">{formatRupiah(item.Plafon)}</td>
-                                            {isRealisasi && <td className="p-4 text-gray-600 whitespace-nowrap">{item.Tenor} Bln</td>}
-                                            <td className="p-4 text-gray-600 whitespace-nowrap">{item.Petugas}</td>
-                                            <td className="p-4 text-center"><DeleteButton item={item} type={type} onDelete={deleteDataPencairan} /></td>
+                                            <td className="p-3 text-gray-700 whitespace-nowrap">{item.Tanggal}</td>
+                                            <td className="p-3 font-medium text-gray-800 whitespace-nowrap">{item.Nama}{isReal && <><br/><span className="text-xs text-gray-400 font-normal">{item.NoKredit}</span></>}</td>
+                                            <td className="p-3"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs font-medium border border-blue-100">{item.Produk || '-'}</span></td>
+                                            <td className="p-3 text-gray-800 font-semibold whitespace-nowrap">{formatRupiah(item.Plafon)}</td>
+                                            {isReal && <td className="p-3 text-gray-600 whitespace-nowrap">{item.Tenor} Bln</td>}
+                                            <td className="p-3 text-gray-600 whitespace-nowrap">{item.Petugas}</td>
+                                            <td className="p-3 text-center"><button onClick={() => deleteData(item)} className="text-red-500 hover:text-red-700 p-2"><i className="fas fa-trash"></i></button></td>
                                         </tr>
-                                    )) : <tr><td colSpan={isRealisasi ? "8" : "6"} className="p-8 text-center text-gray-500">Belum ada data di rentang ini.</td></tr>}
+                                    )) : <tr><td colSpan={isReal ? "7" : "6"} className="p-8 text-center text-gray-500">Belum ada data.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -809,110 +954,98 @@
                 );
             };
 
-            // Komponen Item Sidebar
-            const NavItem = ({ id, icon, label }) => (
-                <button onClick={() => setActiveTab(id)} className={`w-full flex items-center space-x-3 px-6 py-2.5 mb-1 transition-colors sidebar-item ${activeTab === id ? 'sidebar-active' : 'text-gray-600'}`}>
-                    <i className={`fas ${icon} w-5 text-center`}></i>
-                    <span className="font-medium text-sm text-left">{label}</span>
+            if (!userRole) {
+                return (
+                    <div className="w-full h-screen flex bg-gray-50 absolute z-[100] top-0 left-0 overflow-hidden">
+                        <div className="hidden md:flex md:w-1/2 bg-white flex-col items-center justify-center p-12 border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10"><SvgLogo className="w-full max-w-md drop-shadow-xl hover:scale-105 transition-transform duration-700" /></div>
+                        <div className="w-full md:w-1/2 flex items-center justify-center p-6 bg-gray-50 relative overflow-hidden">
+                            <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none"><SvgLogo className="w-[150%] h-[150%] max-w-none" /></div>
+                            <div className="bg-white/95 backdrop-blur p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md text-center relative z-10 border border-gray-100">
+                                <div className="md:hidden mx-auto mb-6 flex justify-center"><SvgLogo className="h-28 w-28 drop-shadow-md" /></div>
+                                <h1 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Area Medan 1</h1>
+                                <form onSubmit={processLogin} className="space-y-4 text-left mt-8">
+                                    {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200"><i className="fas fa-exclamation-circle mr-2"></i> {loginError}</div>}
+                                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Username</label><div className="relative"><i className="fas fa-user absolute left-3 top-3.5 text-gray-400"></i><input type="text" name="username" value={loginData.username} onChange={handleLoginChange} required placeholder="Masukkan Username" className="w-full pl-10 pr-4 py-2.5 border rounded-lg outline-none" /></div></div>
+                                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><div className="relative"><i className="fas fa-key absolute left-3 top-3.5 text-gray-400"></i><input type="password" name="password" value={loginData.password} onChange={handleLoginChange} required placeholder="Masukkan Password" className="w-full pl-10 pr-4 py-2.5 border rounded-lg outline-none" /></div></div>
+                                    <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold shadow-md mt-6 flex justify-center items-center space-x-2"><i className="fas fa-sign-in-alt"></i><span>Masuk Aplikasi</span></button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            const NavItem = ({ tab, icon, label, isActive, onClick }) => (
+                <button onClick={() => onClick(tab)} className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${isActive ? 'sidebar-active shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    <i className={`fas ${icon} w-5 text-center ${isActive ? 'text-blue-600' : 'text-gray-400'}`}></i><span className="font-medium text-sm text-left">{label}</span>
                 </button>
             );
 
+            const NavHeader = ({ label }) => (<div className="pt-5 pb-2 px-4 text-[11px] font-extrabold text-gray-400 uppercase tracking-widest">{label}</div>);
+
             return (
-                <div className="flex h-screen overflow-hidden">
-                    {/* LAYAR LOGIN KHUSUS */}
-                    {!userRole && (
-                        <div className="w-full h-screen flex bg-gray-50 absolute z-[100] top-0 left-0 overflow-hidden">
-                            <div className="hidden md:flex md:w-1/2 bg-white flex-col items-center justify-center p-12 border-r border-gray-100 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10"><SvgLogo className="w-full max-w-md drop-shadow-xl hover:scale-105 transition-transform duration-700" /></div>
-                            <div className="w-full md:w-1/2 flex items-center justify-center p-6 bg-gray-50 relative overflow-hidden">
-                                <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none"><SvgLogo className="w-[150%] h-[150%] max-w-none" /></div>
-                                <div className="bg-white/95 backdrop-blur p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md text-center relative z-10 border border-gray-100">
-                                    <div className="md:hidden mx-auto mb-6 flex justify-center"><SvgLogo className="h-28 w-28 drop-shadow-md" /></div>
-                                    <h1 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Area Medan 1</h1>
-                                    <form onSubmit={processLogin} className="space-y-4 text-left mt-8">
-                                        {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200"><i className="fas fa-exclamation-circle mr-2"></i> {loginError}</div>}
-                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Username</label><div className="relative"><i className="fas fa-user absolute left-3 top-3.5 text-gray-400"></i><input type="text" name="username" value={loginData.username} onChange={handleLoginChange} required placeholder="Masukkan Username" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none bg-white/50" /></div></div>
-                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><div className="relative"><i className="fas fa-key absolute left-3 top-3.5 text-gray-400"></i><input type="password" name="password" value={loginData.password} onChange={handleLoginChange} required placeholder="Masukkan Password" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none bg-white/50" /></div></div>
-                                        <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold transition flex items-center justify-center space-x-2 mt-6 shadow-md"><i className="fas fa-sign-in-alt"></i> <span>Masuk Aplikasi</span></button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* SIDEBAR NAVIGASI TERBARU (Sama persis seperti gambar) */}
-                    <div className="w-64 bg-white shadow-lg z-10 flex-col hidden md:flex">
-                        <div className="p-4 border-b flex flex-col items-center text-center pt-6"><SvgLogo className="h-20 w-20 mb-3 drop-shadow-sm" /><h1 className="text-lg font-bold text-gray-800 leading-tight">Area Medan 1</h1></div>
-                        <nav className="flex-1 overflow-y-auto py-4 custom-scrollbar">
-                            <div className="px-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">DASHBOARD</div>
-                            <NavItem id="dashReal" icon="fa-pie-chart" label="Realisasi (Admin)" />
-                            <NavItem id="dashEst" icon="fa-chart-bar text-purple-500" label="Estimasi (AO)" />
-                            
-                            <div className="px-6 mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">INPUT DATA</div>
-                            <NavItem id="formReal" icon="fa-file-invoice-dollar" label="Input Realisasi" />
-                            <NavItem id="formEst" icon="fa-edit text-purple-500" label="Input Estimasi" />
-                            
-                            <div className="px-6 mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">LAPORAN CSV</div>
-                            <NavItem id="lar" icon="fa-exclamation-circle text-orange-500" label="LAR 11 - 30 Hari" />
-                            <NavItem id="npl" icon="fa-exclamation-triangle text-red-500" label="NPL (KOL 3 - 5)" />
-                            <NavItem id="report" icon="fa-chart-line text-blue-500" label="Report Realisasi" />
-                            
+                <div className="flex h-screen overflow-hidden bg-gray-50">
+                    <div className="w-64 bg-white shadow-[2px_0_10px_rgba(0,0,0,0.05)] z-20 flex-col hidden md:flex h-full border-r border-gray-100">
+                        <div className="p-6 flex flex-col items-center text-center"><SvgLogo className="h-20 w-20 mb-3 drop-shadow-md" /><h1 className="text-lg font-bold text-gray-800">Area Medan 1</h1></div>
+                        <div className="flex-1 overflow-y-auto px-3 pb-6">
+                            <NavHeader label="Dashboard" />
+                            <NavItem tab="dashReal" icon="fa-chart-pie" label="Realisasi (Admin)" isActive={activeTab==='dashboard'||activeTab==='dashReal'} onClick={setActiveTab} />
+                            <NavItem tab="dashEst" icon="fa-chart-bar" label="Estimasi (AO)" isActive={activeTab==='dashEst'} onClick={setActiveTab} />
+                            <NavHeader label="Input Data" />
+                            <NavItem tab="inputReal" icon="fa-file-invoice-dollar" label="Input Realisasi" isActive={activeTab==='form'||activeTab==='inputReal'} onClick={setActiveTab} />
+                            <NavItem tab="inputEst" icon="fa-edit" label="Input Estimasi" isActive={activeTab==='inputEst'} onClick={setActiveTab} />
+                            <NavHeader label="Laporan CSV" />
+                            <NavItem tab="kol1" icon="fa-exclamation" label="KOL 1 (1 - 10 Hari)" isActive={activeTab==='kol1'} onClick={setActiveTab} />
+                            <NavItem tab="lar" icon="fa-exclamation-circle" label="LAR (11 - 30 Hari)" isActive={activeTab==='lar'} onClick={setActiveTab} />
+                            <NavItem tab="npl" icon="fa-exclamation-triangle" label="NPL (KOL 3 - 5)" isActive={activeTab==='npl'} onClick={setActiveTab} />
+                            <NavItem tab="report" icon="fa-chart-line" label="Report Realisasi" isActive={activeTab==='report'} onClick={setActiveTab} />
                             {userRole === 'admin' && (
                                 <>
-                                    <div className="px-6 mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">KHUSUS ADMIN</div>
-                                    <NavItem id="dataReal" icon="fa-table" label="Rekap Realisasi" />
-                                    <NavItem id="dataEst" icon="fa-list-alt text-purple-500" label="Rekap Estimasi" />
-                                    <NavItem id="admin" icon="fa-cog text-gray-600" label="Kelola & Setting" />
+                                    <NavHeader label="Khusus Admin" />
+                                    <NavItem tab="dataReal" icon="fa-table" label="Rekap Realisasi" isActive={activeTab==='data'||activeTab==='dataReal'} onClick={setActiveTab} />
+                                    <NavItem tab="dataEst" icon="fa-list-ul" label="Rekap Estimasi" isActive={activeTab==='dataEst'} onClick={setActiveTab} />
+                                    <NavItem tab="admin" icon="fa-cog" label="Kelola & Setting" isActive={activeTab==='admin'} onClick={setActiveTab} />
                                 </>
                             )}
-                        </nav>
-                        <div className="p-4 border-t"><button onClick={handleLogout} className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium"><i className="fas fa-sign-out-alt"></i> <span>Keluar</span></button></div>
+                        </div>
+                        <div className="p-4 border-t border-gray-100 bg-gray-50"><button onClick={handleLogout} className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition font-bold text-sm shadow-sm"><i className="fas fa-sign-out-alt"></i> <span>Keluar</span></button></div>
                     </div>
                     
-                    {/* NAVIGASI MOBILE (Bawah) */}
-                    <div className="md:hidden fixed bottom-0 w-full bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-50 flex justify-around p-1 overflow-x-auto">
-                        <button onClick={() => setActiveTab('dashReal')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'dashReal' ? 'text-blue-600' : 'text-gray-500'}`}><i className="fas fa-pie-chart mb-1 text-sm"></i><span className="text-[9px]">Dash</span></button>
-                        <button onClick={() => setActiveTab('formReal')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'formReal' ? 'text-blue-600' : 'text-gray-500'}`}><i className="fas fa-plus mb-1 text-sm"></i><span className="text-[9px]">Input</span></button>
-                        <button onClick={() => setActiveTab('lar')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'lar' ? 'text-orange-600' : 'text-gray-500'}`}><i className="fas fa-exclamation-circle mb-1 text-sm"></i><span className="text-[9px]">LAR</span></button>
-                        <button onClick={() => setActiveTab('npl')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'npl' ? 'text-red-600' : 'text-gray-500'}`}><i className="fas fa-exclamation-triangle mb-1 text-sm"></i><span className="text-[9px]">NPL</span></button>
-                        <button onClick={() => setActiveTab('report')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'report' ? 'text-blue-600' : 'text-gray-500'}`}><i className="fas fa-chart-line mb-1 text-sm"></i><span className="text-[9px]">Report</span></button>
-                        {userRole === 'admin' && (
-                            <>
-                                <button onClick={() => setActiveTab('dataReal')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'dataReal' ? 'text-blue-600' : 'text-gray-500'}`}><i className="fas fa-table mb-1 text-sm"></i><span className="text-[9px]">Data</span></button>
-                                <button onClick={() => setActiveTab('admin')} className={`p-2 rounded-lg flex flex-col items-center min-w-[50px] ${activeTab === 'admin' ? 'text-blue-600' : 'text-gray-500'}`}><i className="fas fa-cog mb-1 text-sm"></i><span className="text-[9px]">Kelola</span></button>
-                            </>
-                        )}
-                        <button onClick={handleLogout} className="p-2 rounded-lg flex flex-col items-center text-red-500 min-w-[50px]"><i className="fas fa-sign-out-alt mb-1 text-sm"></i><span className="text-[9px]">Keluar</span></button>
-                    </div>
-                    
-                    {/* AREA KONTEN UTAMA */}
-                    <div className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
-                        <header className="bg-white p-4 shadow-sm flex justify-between items-center md:hidden border-b sticky top-0 z-20">
-                            <div className="flex items-center space-x-3"><SvgLogo className="h-10 w-10 drop-shadow-sm" /><h1 className="text-md font-bold text-gray-800 leading-tight">Area Medan 1</h1></div>
-                            <div className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full capitalize font-medium">{userRole === 'admin' ? 'Admin Mode' : 'AO Mode'}</div>
-                        </header>
-                        <main className="p-4 md:p-8">
-                            {activeTab === 'dashReal' && <Dashboard type="realisasi" />}
-                            {activeTab === 'dashEst' && <Dashboard type="estimasi" />}
-                            {activeTab === 'formReal' && <FormPencairan type="realisasi" />}
-                            {activeTab === 'formEst' && <FormPencairan type="estimasi" />}
-                            {activeTab === 'lar' && <LarView />}
-                            {activeTab === 'npl' && <NplView />}
-                            {activeTab === 'report' && <ReportRealisasiView />}
-                            {activeTab === 'dataReal' && userRole === 'admin' && <DataTable type="realisasi" />}
-                            {activeTab === 'dataEst' && userRole === 'admin' && <DataTable type="estimasi" />}
-                            {activeTab === 'admin' && userRole === 'admin' && <AdminPanel />}
+                    <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+                        <header className="bg-white p-4 shadow-sm flex justify-between items-center md:hidden border-b z-20"><div className="flex items-center space-x-3"><SvgLogo className="h-8 w-8 drop-shadow-sm" /><h1 className="text-md font-bold text-gray-800">Area Medan 1</h1></div><button onClick={handleLogout} className="text-red-500 p-2"><i className="fas fa-sign-out-alt"></i></button></header>
+                        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+                            <div className="max-w-7xl mx-auto">
+                                {(activeTab === 'dashboard' || activeTab === 'dashReal') && <Dashboard type="realisasi" />}
+                                {activeTab === 'dashEst' && <Dashboard type="estimasi" />}
+                                {(activeTab === 'form' || activeTab === 'inputReal') && <FormInput type="realisasi" />}
+                                {activeTab === 'inputEst' && <FormInput type="estimasi" />}
+                                {activeTab === 'kol1' && <TableKol1View />}
+                                {activeTab === 'lar' && <TableNasabahView title="Data LAR 11 sd 30 Hari" data={larData} type="lar" icon="fa-exclamation-circle" />}
+                                {activeTab === 'npl' && <TableNasabahView title="Data NPL (KOL 3 sd 5)" data={nplData} type="npl" icon="fa-exclamation-triangle" />}
+                                {activeTab === 'report' && <ReportRealisasiView />}
+                                {(activeTab === 'data' || activeTab === 'dataReal') && userRole === 'admin' && <DataTable type="realisasi" />}
+                                {activeTab === 'dataEst' && userRole === 'admin' && <DataTable type="estimasi" />}
+                                {activeTab === 'admin' && userRole === 'admin' && <AdminPanel />}
+                            </div>
                         </main>
+                        
+                        <div className="md:hidden fixed bottom-0 w-full bg-white shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-50 flex justify-around p-2 border-t border-gray-100 overflow-x-auto">
+                            <button onClick={() => setActiveTab('dashReal')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab.includes('dash') ? 'text-blue-600' : 'text-gray-400'}`}><i className="fas fa-home mb-1 text-lg"></i><span className="text-[10px] font-medium">Home</span></button>
+                            <button onClick={() => setActiveTab('inputReal')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab.includes('input')||activeTab==='form' ? 'text-blue-600' : 'text-gray-400'}`}><i className="fas fa-plus-circle mb-1 text-lg"></i><span className="text-[10px] font-medium">Input</span></button>
+                            <button onClick={() => setActiveTab('kol1')} className={`p-2 rounded-lg flex flex-col items-center ${['kol1','lar','npl'].includes(activeTab) ? 'text-orange-500' : 'text-gray-400'}`}><i className="fas fa-file-csv mb-1 text-lg"></i><span className="text-[10px] font-medium">CSV</span></button>
+                            {userRole === 'admin' && <button onClick={() => setActiveTab('admin')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab==='admin'||activeTab.includes('data') ? 'text-blue-600' : 'text-gray-400'}`}><i className="fas fa-cog mb-1 text-lg"></i><span className="text-[10px] font-medium">Setting</span></button>}
+                        </div>
                     </div>
 
-                    {/* TOAST NOTIFIKASI */}
                     {toastMessage && (
-                        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 text-white ${toastMessage.type === 'error' ? 'bg-red-500' : 'bg-gray-800'}`}>
-                            <i className={`fas ${toastMessage.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}`}></i><span>{toastMessage.message}</span>
+                        <div className={`fixed top-4 right-4 z-[100] px-6 py-4 rounded-xl shadow-2xl flex items-center space-x-3 text-white font-medium transform transition-all duration-300 ${toastMessage.type === 'error' ? 'bg-red-600' : 'bg-gray-800'}`}>
+                            <i className={`fas text-lg ${toastMessage.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}`}></i><span>{toastMessage.message}</span>
                         </div>
                     )}
                 </div>
             );
         };
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
