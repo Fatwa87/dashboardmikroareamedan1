@@ -1065,7 +1065,7 @@
 
                             <div>
                                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2 px-3">Input Data</p>
-                                {isAdmin && <button onClick={() => {setActiveTab('inReal'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'inReal' ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-file-invoice-dollar w-6"></i> Input Realisasi</button>}
+                                <button onClick={() => {setActiveTab('inReal'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'inReal' ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-file-invoice-dollar w-6"></i> Input Realisasi</button>
                                 <button onClick={() => {setActiveTab('inEst'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'inEst' ? 'bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-edit w-6"></i> Input Estimasi</button>
                             </div>
 
