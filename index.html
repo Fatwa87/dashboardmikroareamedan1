@@ -62,16 +62,13 @@
             if (!d) return '';
             if (typeof d === 'string') {
                 const s = d.trim();
-                // Format YYYY-MM-DD murni tanpa jam
                 if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-                // Format DD/MM/YYYY atau DD-MM-YYYY tanpa jam
                 const parts = s.split(/[-/]/);
                 if (parts.length === 3 && parts.every(p => !p.includes('T') && !p.includes(' ') && !p.includes(':'))) {
                     if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
                     if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                 }
             }
-            // Tangani string ISO UTC dari Google Sheet (misal: 2026-09-07T17:00:00.000Z) agar terkonversi ke WIB lokal
             const dt = new Date(d);
             if (isNaN(dt.getTime())) return '';
             const year = dt.getFullYear();
@@ -108,22 +105,26 @@
             const cleanTanggal = normalizeDate(rawTanggal) || new Date().toLocaleDateString('en-CA');
             const nama = getVal(['Nama', 'CUSTOMER_NM', 'Nama Nasabah', 'NamaNasabah']);
             const noKredit = getVal(['NoKredit', 'NO_KONTRAK', 'No_Kredit', 'NoKontrak', 'NomorKredit']);
-            const cabang = getVal(['Cabang', 'CABANG', 'Nama Cabang', 'NamaCabang', 'Unit', 'Outlet']);
+            const cabang = getVal(['Cabang', 'CABANG', 'Nama Cabang', 'NamaCabang']);
+            const outlet = getVal(['Outlet', 'OUTLET', 'Outlet Pencairan', 'Outlet Penyalur', 'Unit', 'UPC']);
             const produk = getVal(['Produk', 'SUB PRODUK', 'SubProduk', 'JenisProduk']);
             const rawPlafon = getVal(['Plafon', 'UP', 'OSL', 'Nominal', 'Plafon Pencairan', 'Estimasi']);
             const cleanPlafon = String(rawPlafon).replace(/\D/g, '') || '0';
             const tenor = getVal(['Tenor', 'TENOR', 'JangkaWaktu']);
-            const petugas = getVal(['Petugas', 'AO', 'AdminMikro', 'Admin Mikro', 'Nama Petugas', 'PetugasAO']);
+            const petugas = getVal(['Petugas', 'AdminMikro', 'Admin Mikro', 'Nama Petugas', 'Admin']);
+            const ao = getVal(['AO', 'Nama AO', 'NamaAO', 'AO Pemrakarsa', 'Pemrakarsa']);
 
             return {
                 Tanggal: cleanTanggal,
                 Nama: nama,
                 NoKredit: noKredit,
                 Cabang: cabang,
+                Outlet: outlet,
                 Produk: produk,
                 Plafon: cleanPlafon,
                 Tenor: tenor,
-                Petugas: petugas
+                Petugas: petugas,
+                AO: ao
             };
         };
 
@@ -247,7 +248,7 @@
                 }
 
                 const colCount = head[0]?.length || 8;
-                const isDense = colCount > 9;
+                const isDense = colCount > 8;
 
                 doc.autoTable({
                     head: head,
@@ -314,7 +315,7 @@
                     <img 
                         src={candidateSources[imgIdx]} 
                         alt="Area Medan 1 Juara" 
-                        style={{ width: size, height: size }}
+                        style={{ width: size, height: size }} 
                         className={`object-contain select-none rounded-full ${className}`}
                         onError={() => setImgIdx(prev => prev + 1)}
                     />
@@ -360,7 +361,6 @@
             
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
 
-            // State Data Inti dengan Pengisian Awal Berbasiskan LocalStorage (Anti-Kosong)
             const [dataPencairan, setDataPencairan] = useState(() => {
                 try {
                     const local = localStorage.getItem('dataPencairan');
@@ -379,21 +379,24 @@
             const [nplData, setNplData] = useState([]);
             const [reportData, setReportData] = useState([]);
             
-            // State Master Data
-            const [aoList, setAoList] = useState(JSON.parse(localStorage.getItem('aoList')) || []);
-            const [adminList, setAdminList] = useState(JSON.parse(localStorage.getItem('adminList')) || []);
-            const [productList, setProductList] = useState(JSON.parse(localStorage.getItem('productList')) || []);
-            const [cabangList, setCabangList] = useState(JSON.parse(localStorage.getItem('cabangList')) || []);
+            const [aoList, setAoList] = useState(JSON.parse(localStorage.getItem('aoList')) || ['AO MEDAN', 'AO BINJAI', 'AO TEBING']);
+            const [adminList, setAdminList] = useState(JSON.parse(localStorage.getItem('adminList')) || ['ADMIN MIKRO 1', 'ADMIN MIKRO 2']);
+            const [productList, setProductList] = useState(JSON.parse(localStorage.getItem('productList')) || ['KREASI BARU', 'KREASI FLEKSI', 'KUR MIKRO']);
+            const [cabangList, setCabangList] = useState(JSON.parse(localStorage.getItem('cabangList')) || ['MEDAN UTAMA', 'MEDAN PETISAH', 'BINJAI']);
             
-            // Default Master Akun (Master Key Terproteksi)
-            const defaultUsers = [{ username: 'admin', password: 'Area@123!', role: 'admin' }];
+            const defaultUsers = [
+                { username: 'admin', password: 'Area@123!', role: 'admin' },
+                { username: 'Mikro', password: 'Mikro@123!', role: 'ao' }
+            ];
             const [appUsers, setAppUsers] = useState(JSON.parse(localStorage.getItem('appUsers')) || defaultUsers);
 
             useEffect(() => {
                 const currentUsers = JSON.parse(localStorage.getItem('appUsers')) || [];
-                const hasMasterAdmin = currentUsers.some(u => u.username === 'admin' && u.password === 'Area@123!');
-                if (!hasMasterAdmin) {
-                    const mergedUsers = [...currentUsers.filter(u => u.username !== 'admin'), ...defaultUsers];
+                const hasMasterAdmin = currentUsers.some(u => u.username.toLowerCase() === 'admin' && u.password === 'Area@123!');
+                const hasMasterAo = currentUsers.some(u => u.username.toLowerCase() === 'mikro' && u.password === 'Mikro@123!');
+                if (!hasMasterAdmin || !hasMasterAo) {
+                    const cleanUsers = currentUsers.filter(u => u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro');
+                    const mergedUsers = [...defaultUsers, ...cleanUsers];
                     setAppUsers(mergedUsers);
                     localStorage.setItem('appUsers', JSON.stringify(mergedUsers));
                 }
@@ -415,14 +418,12 @@
                     if (response.ok) {
                         const result = await response.json();
                         
-                        // Normalisasi dan simpan pencairan
                         if (result.pencairan && Array.isArray(result.pencairan)) {
                             const cleaned = result.pencairan.map(it => normalizeRecord(it, true)).filter(Boolean);
                             setDataPencairan(cleaned);
                             localStorage.setItem('dataPencairan', JSON.stringify(cleaned));
                         }
                         
-                        // Normalisasi dan simpan estimasi
                         if (result.estimasi && Array.isArray(result.estimasi)) {
                             const cleaned = result.estimasi.map(it => normalizeRecord(it, false)).filter(Boolean);
                             setDataEstimasi(cleaned);
@@ -434,7 +435,6 @@
                         if (result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
                         if (result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
                         
-                        // Ekstraksi 4 Kolom Master Data
                         if (result.master && result.master.length > 0) {
                             const ao = [], prod = [], adm = [], cab = [];
                             result.master.forEach(item => {
@@ -448,14 +448,12 @@
                             const uniqueAdm = [...new Set(adm)];
                             const uniqueCab = [...new Set(cab)];
                             
-                            setAoList(uniqueAo); setProductList(uniqueProd); setAdminList(uniqueAdm); setCabangList(uniqueCab);
-                            localStorage.setItem('aoList', JSON.stringify(uniqueAo));
-                            localStorage.setItem('productList', JSON.stringify(uniqueProd));
-                            localStorage.setItem('adminList', JSON.stringify(uniqueAdm));
-                            localStorage.setItem('cabangList', JSON.stringify(uniqueCab));
+                            if (uniqueAo.length > 0) { setAoList(uniqueAo); localStorage.setItem('aoList', JSON.stringify(uniqueAo)); }
+                            if (uniqueProd.length > 0) { setProductList(uniqueProd); localStorage.setItem('productList', JSON.stringify(uniqueProd)); }
+                            if (uniqueAdm.length > 0) { setAdminList(uniqueAdm); localStorage.setItem('adminList', JSON.stringify(uniqueAdm)); }
+                            if (uniqueCab.length > 0) { setCabangList(uniqueCab); localStorage.setItem('cabangList', JSON.stringify(uniqueCab)); }
                         }
                         
-                        // Ekstraksi Pengguna & Kredensial
                         if (result.users && result.users.length > 0) {
                             const mappedUsers = result.users.map(u => ({
                                 username: u.Username || u.username,
@@ -463,7 +461,7 @@
                                 role: u.Role || u.role
                             })).filter(u => u.username);
 
-                            const cleanUsers = mappedUsers.filter(u => u.username.toLowerCase() !== 'admin');
+                            const cleanUsers = mappedUsers.filter(u => u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro');
                             const finalUsers = [...defaultUsers, ...cleanUsers];
                             
                             setAppUsers(finalUsers);
@@ -510,7 +508,7 @@
                 const storedLar = localStorage.getItem('larData'); if (storedLar) setLarData(JSON.parse(storedLar));
                 const storedNpl = localStorage.getItem('nplData'); if (storedNpl) setNplData(JSON.parse(storedNpl));
                 const storedReport = localStorage.getItem('reportData'); if (storedReport) setReportData(JSON.parse(storedReport));
-                if (userRole) syncFromSheet();
+                syncFromSheet();
             }, [userRole]);
 
             const Login = () => {
@@ -524,7 +522,7 @@
 
                 const processLogin = (e) => {
                     e.preventDefault();
-                    const validUser = appUsers.find(u => u.username && u.username.toLowerCase() === loginData.username.toLowerCase() && u.password === loginData.password);
+                    const validUser = appUsers.find(u => u.username && u.username.toLowerCase() === loginData.username.trim().toLowerCase() && u.password === loginData.password.trim());
                     if (validUser) {
                         setUserRole(validUser.role);
                         localStorage.setItem('userRole', validUser.role);
@@ -607,11 +605,13 @@
                     Tanggal: new Date().toLocaleDateString('en-CA'),
                     Nama: '',
                     Cabang: cabangList.length > 0 ? cabangList[0] : '',
+                    Outlet: '',
                     NoKredit: '',
                     Produk: productList.length > 0 ? productList[0] : '',
                     Plafon: '',
                     Tenor: '',
-                    Petugas: isReal ? (adminList.length > 0 ? adminList[0] : '') : (aoList.length > 0 ? aoList[0] : '')
+                    Petugas: isReal ? (adminList.length > 0 ? adminList[0] : '') : (aoList.length > 0 ? aoList[0] : ''),
+                    AO: aoList.length > 0 ? aoList[0] : ''
                 });
 
                 useEffect(() => {
@@ -619,11 +619,15 @@
                     if (!formData.Produk && productList.length > 0) setFormData(p => ({ ...p, Produk: productList[0] }));
                     const targetPetugas = isReal ? adminList : aoList;
                     if (!formData.Petugas && targetPetugas.length > 0) setFormData(p => ({ ...p, Petugas: targetPetugas[0] }));
+                    if (!formData.AO && aoList.length > 0) setFormData(p => ({ ...p, AO: aoList[0] }));
                 }, [cabangList, productList, adminList, aoList]);
 
                 const handleSubmit = async (e) => {
                     e.preventDefault();
                     if (!formData.Cabang) return showToast('Harap pilih Cabang terlebih dahulu!', 'error');
+                    if (isReal && !formData.Outlet.trim()) return showToast('Harap masukkan Outlet Pencairan!', 'error');
+                    if (isReal && !formData.AO) return showToast('Harap pilih Nama AO Pemrakarsa!', 'error');
+                    
                     setIsLoading(true);
                     
                     const cleanPlafon = formData.Plafon.toString().replace(/\D/g, '');
@@ -631,7 +635,9 @@
                     const newData = { 
                         ...formData, 
                         Tanggal: cleanDate,
-                        Plafon: cleanPlafon 
+                        Plafon: cleanPlafon,
+                        Outlet: formData.Outlet.trim().toUpperCase(),
+                        AO: (formData.AO || '').trim().toUpperCase()
                     };
                     
                     // Simpan instan ke state dan LocalStorage
@@ -661,24 +667,27 @@
                         ...formData, 
                         Nama: '', 
                         NoKredit: '', 
+                        Outlet: '',
                         Plafon: '', 
                         Tenor: '', 
-                        Cabang: cabangList.length > 0 ? cabangList[0] : '' 
+                        Cabang: cabangList.length > 0 ? cabangList[0] : '',
+                        AO: aoList.length > 0 ? aoList[0] : ''
                     });
                 };
 
                 return (
-                    <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
+                    <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
                         <div className="flex items-center mb-6 pb-4 border-b border-slate-100">
                             <div className={`p-3.5 rounded-2xl mr-4 ${isReal ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
                                 <i className={`fas ${isReal ? 'fa-file-invoice-dollar' : 'fa-edit'} text-2xl`}></i>
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold text-slate-800">Input Data {isReal ? 'Realisasi' : 'Estimasi'}</h2>
-                                <p className="text-sm text-slate-500">Lengkapi formulir pencairan nasabah mikro</p>
+                                <h2 className="text-2xl font-bold text-slate-800">Input Data {isReal ? 'Realisasi Pencairan' : 'Estimasi Pencairan'}</h2>
+                                <p className="text-sm text-slate-500">Lengkapi formulir pencairan nasabah mikro Area Medan 1</p>
                             </div>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
+                            {/* Baris 1: Tanggal & Cabang */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tanggal {isReal ? 'Pencairan' : 'Estimasi'}</label>
@@ -693,47 +702,87 @@
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nama Nasabah</label>
-                                <input type="text" value={formData.Nama} onChange={(e)=>setFormData({...formData, Nama: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nama lengkap nasabah" required />
-                            </div>
-
-                            {isReal && (
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nomor Kredit</label>
-                                    <input type="text" value={formData.NoKredit} onChange={(e)=>setFormData({...formData, NoKredit: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nomor kontrak/kredit nasabah" required />
-                                </div>
-                            )}
-
+                            {/* Baris 2: Nama Nasabah & Nomor Kredit / Outlet Penyalur */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nama Nasabah</label>
+                                    <input type="text" value={formData.Nama} onChange={(e)=>setFormData({...formData, Nama: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nama lengkap nasabah" required />
+                                </div>
+                                {isReal ? (
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nomor Kredit</label>
+                                        <input type="text" value={formData.NoKredit} onChange={(e)=>setFormData({...formData, NoKredit: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nomor kontrak/kredit nasabah" required />
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Outlet Penyalur</label>
+                                        <input type="text" value={formData.Outlet} onChange={(e)=>setFormData({...formData, Outlet: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="Nama UPC / Outlet Penyalur" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Baris 3: Outlet Pencairan & Jenis Produk */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                {isReal && (
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-blue-700 mb-1.5">
+                                            <i className="fas fa-store mr-1.5"></i>Outlet Pencairan
+                                        </label>
+                                        <input type="text" value={formData.Outlet} onChange={(e)=>setFormData({...formData, Outlet: e.target.value.toUpperCase()})} className="w-full p-3 bg-blue-50/50 border border-blue-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-slate-800" placeholder="Contoh: UPC PASAR MERAH" required />
+                                    </div>
+                                )}
+                                <div className={!isReal ? 'md:col-span-2' : ''}>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Jenis Produk</label>
                                     <select value={formData.Produk} onChange={(e)=>setFormData({...formData, Produk: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
                                         <option value="">-- Pilih Produk --</option>
                                         {productList.map((p, i)=><option key={i} value={p}>{p}</option>)}
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* Baris 4: Plafon Pencairan & Tenor / Petugas AO */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{isReal ? 'Plafon Pencairan (Rp)' : 'Estimasi Pencairan (Rp)'}</label>
                                     <input type="text" value={formData.Plafon} onChange={(e)=>{ const val = e.target.value.replace(/\D/g, ''); setFormData({...formData, Plafon: formatRupiah(val).replace('Rp', '').trim()}) }} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="0" required />
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                {isReal && (
+                                {isReal ? (
                                     <div>
                                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tenor (Bulan)</label>
                                         <input type="number" value={formData.Tenor} onChange={(e)=>setFormData({...formData, Tenor: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" placeholder="12" required />
                                     </div>
+                                ) : (
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nama Petugas / AO</label>
+                                        <select value={formData.Petugas} onChange={(e)=>setFormData({...formData, Petugas: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
+                                            <option value="">-- Pilih Petugas --</option>
+                                            {aoList.map((opt, i)=><option key={i} value={opt}>{opt}</option>)}
+                                        </select>
+                                    </div>
                                 )}
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{isReal ? 'Nama Admin Mikro' : 'Nama Petugas / AO'}</label>
-                                    <select value={formData.Petugas} onChange={(e)=>setFormData({...formData, Petugas: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
-                                        <option value="">-- Pilih Petugas --</option>
-                                        {(isReal ? adminList : aoList).map((opt, i)=><option key={i} value={opt}>{opt}</option>)}
-                                    </select>
-                                </div>
                             </div>
+
+                            {/* Baris 5: Nama Admin Mikro & Nama AO (Pemrakarsa Kredit) */}
+                            {isReal && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nama Admin Mikro</label>
+                                        <select value={formData.Petugas} onChange={(e)=>setFormData({...formData, Petugas: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium" required>
+                                            <option value="">-- Pilih Admin Mikro --</option>
+                                            {adminList.map((opt, i)=><option key={i} value={opt}>{opt}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-purple-700 mb-1.5">
+                                            <i className="fas fa-user-tie mr-1.5"></i>Nama AO (Pemrakarsa Kredit)
+                                        </label>
+                                        <select value={formData.AO} onChange={(e)=>setFormData({...formData, AO: e.target.value})} className="w-full p-3 bg-purple-50/50 border border-purple-200 rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-purple-600 font-bold text-slate-800" required>
+                                            <option value="">-- Pilih AO Pemrakarsa --</option>
+                                            {aoList.map((opt, i)=><option key={i} value={opt}>{opt}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
 
                             <button type="submit" disabled={isLoading} className={`w-full py-3.5 px-4 rounded-2xl text-white font-bold transition flex justify-center items-center text-sm shadow-lg ${isReal ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30' : 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30'} ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}>
                                 {isLoading ? <><i className="fas fa-spinner fa-spin mr-2"></i>Menyimpan...</> : <><i className="fas fa-save mr-2"></i>Simpan Data {isReal ? 'Realisasi' : 'Estimasi'}</>}
@@ -762,7 +811,6 @@
                     return acc;
                 }, {});
 
-                // Logika Monitoring Petugas Belum Input
                 const targetOfficers = isReal ? adminList : aoList;
                 const submittedOfficers = filteredData.map(item => (item.Petugas || '').trim()).filter(Boolean);
                 const submittedSet = new Set(submittedOfficers.map(name => name.toLowerCase()));
@@ -831,23 +879,6 @@
                                             </span>
                                         ))}
                                     </div>
-
-                                    {completedOfficers.length > 0 && (
-                                        <details className="mt-4 pt-3 border-t border-slate-100 group">
-                                            <summary className="cursor-pointer text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-between list-none">
-                                                <span>Lihat Petugas yang Sudah Input ({completedOfficers.length} Orang)</span>
-                                                <i className="fas fa-chevron-down text-[10px] transform group-open:rotate-180 transition-transform"></i>
-                                            </summary>
-                                            <div className="flex flex-wrap gap-2 mt-3">
-                                                {completedOfficers.map((name, idx) => (
-                                                    <span key={idx} className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                        <i className="fas fa-check-circle mr-1.5 text-emerald-500"></i>
-                                                        {name}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </details>
-                                    )}
                                 </div>
                             ) : (
                                 <div className="mt-5 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center space-x-3">
@@ -941,8 +972,10 @@
                         (item.Nama && item.Nama.toLowerCase().includes(term)) || 
                         (isReal && item.NoKredit && String(item.NoKredit).toLowerCase().includes(term)) ||
                         (item.Cabang && item.Cabang.toLowerCase().includes(term)) ||
+                        (item.Outlet && item.Outlet.toLowerCase().includes(term)) ||
                         (item.Produk && item.Produk.toLowerCase().includes(term)) ||
-                        (item.Petugas && item.Petugas.toLowerCase().includes(term));
+                        (item.Petugas && item.Petugas.toLowerCase().includes(term)) ||
+                        (item.AO && item.AO.toLowerCase().includes(term));
 
                     let matchDate = true;
                     if (startDate || endDate) {
@@ -997,7 +1030,7 @@
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-6">
                                 <div className="md:col-span-5 relative">
                                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i className="fas fa-search"></i></div>
-                                    <input type="text" placeholder="Cari nasabah, cabang, produk..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-600 focus:bg-white text-sm font-medium" />
+                                    <input type="text" placeholder="Cari nasabah, cabang, outlet, AO..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-600 focus:bg-white text-sm font-medium" />
                                 </div>
                                 
                                 <div className="md:col-span-3">
@@ -1039,34 +1072,48 @@
                                 <table id={`table-rekap-${type}`} className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
-                                            <th className="p-4 font-bold">Tanggal</th>
-                                            <th className="p-4 font-bold">Cabang</th>
-                                            <th className="p-4 font-bold">Nama Nasabah</th>
-                                            {isReal && <th className="p-4 font-bold">No. Kredit</th>}
-                                            <th className="p-4 font-bold">Produk</th>
-                                            <th className="p-4 font-bold">Plafon</th>
-                                            {isReal && <th className="p-4 font-bold text-center">Tenor</th>}
-                                            <th className="p-4 font-bold">Petugas</th>
-                                            <th className="p-4 font-bold text-center">Aksi</th>
+                                            <th className="p-3.5 font-bold">Tanggal</th>
+                                            <th className="p-3.5 font-bold">Cabang</th>
+                                            <th className="p-3.5 font-bold">{isReal ? 'Outlet Pencairan' : 'Outlet Penyalur'}</th>
+                                            <th className="p-3.5 font-bold">Nama Nasabah</th>
+                                            {isReal && <th className="p-3.5 font-bold">No. Kredit</th>}
+                                            <th className="p-3.5 font-bold">Produk</th>
+                                            <th className="p-3.5 font-bold">Plafon</th>
+                                            {isReal && <th className="p-3.5 font-bold text-center">Tenor</th>}
+                                            <th className="p-3.5 font-bold">{isReal ? 'Admin Mikro' : 'Petugas / AO'}</th>
+                                            {isReal && <th className="p-3.5 font-bold">AO Pemrakarsa</th>}
+                                            <th className="p-3.5 font-bold text-center">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {filtered.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50 text-sm">
-                                                <td className="p-4 text-slate-600 whitespace-nowrap">{new Date(item.Tanggal).toLocaleDateString('id-ID')}</td>
-                                                <td className="p-4 font-semibold text-slate-700 whitespace-nowrap">{item.Cabang || '-'}</td>
-                                                <td className="p-4 font-bold text-slate-900">{item.Nama}</td>
-                                                {isReal && <td className="p-4 text-slate-600 font-mono text-xs">{item.NoKredit}</td>}
-                                                <td className="p-4 text-slate-600">{item.Produk}</td>
-                                                <td className="p-4 font-extrabold text-emerald-700">{formatRupiah(item.Plafon)}</td>
-                                                {isReal && <td className="p-4 text-center text-slate-600">{item.Tenor ? `${item.Tenor} bln` : '-'}</td>}
-                                                <td className="p-4 text-slate-600">{item.Petugas}</td>
-                                                <td className="p-4 text-center">
+                                                <td className="p-3.5 text-slate-600 whitespace-nowrap">{new Date(item.Tanggal).toLocaleDateString('id-ID')}</td>
+                                                <td className="p-3.5 font-semibold text-slate-700 whitespace-nowrap">{item.Cabang || '-'}</td>
+                                                <td className="p-3.5 font-semibold text-blue-800 whitespace-nowrap">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 text-xs font-bold">
+                                                        <i className="fas fa-store mr-1 text-[10px]"></i>{item.Outlet || '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3.5 font-bold text-slate-900">{item.Nama}</td>
+                                                {isReal && <td className="p-3.5 text-slate-600 font-mono text-xs">{item.NoKredit}</td>}
+                                                <td className="p-3.5 text-slate-600">{item.Produk}</td>
+                                                <td className="p-3.5 font-extrabold text-emerald-700">{formatRupiah(item.Plafon)}</td>
+                                                {isReal && <td className="p-3.5 text-center text-slate-600">{item.Tenor ? `${item.Tenor} bln` : '-'}</td>}
+                                                <td className="p-3.5 text-slate-600">{item.Petugas || '-'}</td>
+                                                {isReal && (
+                                                    <td className="p-3.5 font-bold text-purple-700 whitespace-nowrap">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold">
+                                                            <i className="fas fa-user-tie mr-1 text-[10px]"></i>{item.AO || '-'}
+                                                        </span>
+                                                    </td>
+                                                )}
+                                                <td className="p-3.5 text-center">
                                                     <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition" title="Hapus Data"><i className="fas fa-trash"></i></button>
                                                 </td>
                                             </tr>
                                         ))}
-                                        {filtered.length === 0 && <tr><td colSpan={isReal ? 9 : 7} className="p-8 text-center text-slate-400">Belum ada data pada filter yang dipilih.</td></tr>}
+                                        {filtered.length === 0 && <tr><td colSpan={isReal ? 11 : 8} className="p-8 text-center text-slate-400">Belum ada data pada filter yang dipilih.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -1365,7 +1412,6 @@
                 const [newCabang, setNewCabang] = useState("");
                 const [newUser, setNewUser] = useState({ username: "", password: "", role: "ao" });
                 
-                // Handler Cabang
                 const addCabang = () => {
                     if (!newCabang.trim()) return;
                     const cleanName = newCabang.trim().toUpperCase();
@@ -1382,10 +1428,9 @@
                     showToast('Cabang dihapus', 'error');
                 };
 
-                // Handler AO
                 const addAo = () => {
                     if (!newAo.trim()) return;
-                    const updated = [...new Set([...aoList, newAo.trim()])];
+                    const updated = [...new Set([...aoList, newAo.trim().toUpperCase()])];
                     setAoList(updated); localStorage.setItem('aoList', JSON.stringify(updated));
                     syncMasterToSheet(updated, productList, adminList, cabangList); setNewAo(""); showToast('AO berhasil ditambahkan');
                 };
@@ -1395,10 +1440,9 @@
                     syncMasterToSheet(updated, productList, adminList, cabangList); showToast('AO dihapus', 'error');
                 };
 
-                // Handler Admin
                 const addAdmin = () => {
                     if (!newAdmin.trim()) return;
-                    const updated = [...new Set([...adminList, newAdmin.trim()])];
+                    const updated = [...new Set([...adminList, newAdmin.trim().toUpperCase()])];
                     setAdminList(updated); localStorage.setItem('adminList', JSON.stringify(updated));
                     syncMasterToSheet(aoList, productList, updated, cabangList); setNewAdmin(""); showToast('Admin berhasil ditambahkan');
                 };
@@ -1408,10 +1452,9 @@
                     syncMasterToSheet(aoList, productList, updated, cabangList); showToast('Admin dihapus', 'error');
                 };
 
-                // Handler Produk
                 const addProduct = () => {
                     if (!newProduct.trim()) return;
-                    const updated = [...new Set([...productList, newProduct.trim()])];
+                    const updated = [...new Set([...productList, newProduct.trim().toUpperCase()])];
                     setProductList(updated); localStorage.setItem('productList', JSON.stringify(updated));
                     syncMasterToSheet(aoList, updated, adminList, cabangList); setNewProduct(""); showToast('Produk berhasil ditambahkan');
                 };
@@ -1421,7 +1464,6 @@
                     syncMasterToSheet(aoList, updated, adminList, cabangList); showToast('Produk dihapus', 'error');
                 };
 
-                // Handler Akun User
                 const addUser = () => {
                     if (!newUser.username.trim() || !newUser.password.trim()) return showToast('Isi Username & Password!', 'error');
                     if (appUsers.some(u => u.username.toLowerCase() === newUser.username.trim().toLowerCase())) return showToast('Username sudah terdaftar!', 'error');
@@ -1431,7 +1473,7 @@
                 };
 
                 const removeUser = (username) => {
-                    if (username === 'admin') return showToast('Akun Admin utama terproteksi!', 'error');
+                    if (username.toLowerCase() === 'admin' || username.toLowerCase() === 'mikro') return showToast('Akun bawaan sistem terproteksi!', 'error');
                     const updated = appUsers.filter(u => u.username !== username);
                     setAppUsers(updated); localStorage.setItem('appUsers', JSON.stringify(updated));
                     syncUsersToSheet(updated); showToast('User dihapus', 'error');
@@ -1457,15 +1499,18 @@
                                 setCabangList(updated); localStorage.setItem('cabangList', JSON.stringify(updated));
                                 syncMasterToSheet(aoList, productList, adminList, updated);
                             } else if (type === 'AO') {
-                                const updated = [...new Set([...aoList, ...lines])];
+                                const cleanAo = lines.map(l => l.toUpperCase());
+                                const updated = [...new Set([...aoList, ...cleanAo])];
                                 setAoList(updated); localStorage.setItem('aoList', JSON.stringify(updated));
                                 syncMasterToSheet(updated, productList, adminList, cabangList);
                             } else if (type === 'ADMIN') {
-                                const updated = [...new Set([...adminList, ...lines])];
+                                const cleanAdmin = lines.map(l => l.toUpperCase());
+                                const updated = [...new Set([...adminList, ...cleanAdmin])];
                                 setAdminList(updated); localStorage.setItem('adminList', JSON.stringify(updated));
                                 syncMasterToSheet(aoList, productList, updated, cabangList);
                             } else if (type === 'PRODUK') {
-                                const updated = [...new Set([...productList, ...lines])];
+                                const cleanProd = lines.map(l => l.toUpperCase());
+                                const updated = [...new Set([...productList, ...cleanProd])];
                                 setProductList(updated); localStorage.setItem('productList', JSON.stringify(updated));
                                 syncMasterToSheet(aoList, updated, adminList, cabangList);
                             }
@@ -1769,8 +1814,8 @@
                                                 <td className="p-4 font-mono text-xs text-slate-600">{u.password}</td>
                                                 <td className="p-4"><span className={`px-2.5 py-1 rounded-xl text-xs font-extrabold ${u.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>{u.role.toUpperCase()}</span></td>
                                                 <td className="p-4 text-center">
-                                                    {u.username !== 'admin' && <button onClick={()=>removeUser(u.username)} className="text-red-500 hover:bg-red-50 p-2 rounded-xl transition"><i className="fas fa-trash"></i></button>}
-                                                    {u.username === 'admin' && <span className="text-xs text-slate-400 font-semibold italic">Master Key</span>}
+                                                    {(u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro') && <button onClick={()=>removeUser(u.username)} className="text-red-500 hover:bg-red-50 p-2 rounded-xl transition"><i className="fas fa-trash"></i></button>}
+                                                    {(u.username.toLowerCase() === 'admin' || u.username.toLowerCase() === 'mikro') && <span className="text-xs text-slate-400 font-semibold italic">Akun Sistem</span>}
                                                 </td>
                                             </tr>
                                         ))}
@@ -1788,14 +1833,12 @@
 
             return (
                 <div className="flex bg-slate-50 font-sans text-slate-800">
-                    {/* Toast Notification Container */}
                     {toast.show && (
                         <div className={`fixed top-4 right-4 z-50 px-6 py-3.5 rounded-2xl shadow-xl text-white font-bold text-sm flex items-center toast-enter ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
                             <i className={`fas ${toast.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-3 text-lg`}></i> {toast.message}
                         </div>
                     )}
 
-                    {/* Progress Processing Loader */}
                     {isLoading && (
                         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
                             <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-200">
@@ -1805,7 +1848,6 @@
                         </div>
                     )}
 
-                    {/* Confirmation Modal Dialog */}
                     {confirmModal.open && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                             <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
