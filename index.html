@@ -56,7 +56,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbxCFGiuAIrtsL_c0SzarXm-I1F56gbYnCQpxcUaZPBeR3b7_5ZiHW1mf8EB-wt0eZQ6/exec";
+        const DEFAULT_GLOBAL_SHEET_URL = "https://script.google.com/macros/s/AKfycbxCFGiuAIrtsL_c0SzarXm-I1F56gbYnCQpxcUaZPBeR3b7_5ZiHW1mf8EB-wt0eZQ6/exec";
 
         const normalizeDate = (d) => {
             if (!d) return '';
@@ -183,7 +183,6 @@
 
                 let startY = subtitle ? 30 : 27;
 
-                // Kotak Metrik Ringkasan
                 if (summaryStats && summaryStats.length > 0) {
                     let badgeX = 12;
                     summaryStats.forEach((stat) => {
@@ -359,6 +358,9 @@
             const [isLoading, setIsLoading] = useState(false);
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             
+            // Konfigurasi URL Google Apps Script yang bisa dikonfigurasi dinamis
+            const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('globalSheetUrl') || DEFAULT_GLOBAL_SHEET_URL);
+            
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
 
             const [dataPencairan, setDataPencairan] = useState(() => {
@@ -377,13 +379,21 @@
             const [kol1Data, setKol1Data] = useState([]);
             const [larData, setLarData] = useState([]);
             const [nplData, setNplData] = useState([]);
+            const [klaimData, setKlaimData] = useState(() => {
+                try {
+                    const local = localStorage.getItem('klaimData');
+                    return local ? JSON.parse(local) : [];
+                } catch(e) { return []; }
+            });
             const [reportData, setReportData] = useState([]);
-            
+
+            // State Master Data
             const [aoList, setAoList] = useState(JSON.parse(localStorage.getItem('aoList')) || ['AO MEDAN', 'AO BINJAI', 'AO TEBING']);
             const [adminList, setAdminList] = useState(JSON.parse(localStorage.getItem('adminList')) || ['ADMIN MIKRO 1', 'ADMIN MIKRO 2']);
             const [productList, setProductList] = useState(JSON.parse(localStorage.getItem('productList')) || ['KREASI BARU', 'KREASI FLEKSI', 'KUR MIKRO']);
             const [cabangList, setCabangList] = useState(JSON.parse(localStorage.getItem('cabangList')) || ['MEDAN UTAMA', 'MEDAN PETISAH', 'BINJAI']);
             
+            // Default Master Akun (Master Key Terproteksi: Admin & Mikro)
             const defaultUsers = [
                 { username: 'admin', password: 'Area@123!', role: 'admin' },
                 { username: 'Mikro', password: 'Mikro@123!', role: 'ao' }
@@ -392,10 +402,10 @@
 
             useEffect(() => {
                 const currentUsers = JSON.parse(localStorage.getItem('appUsers')) || [];
-                const hasMasterAdmin = currentUsers.some(u => u.username.toLowerCase() === 'admin' && u.password === 'Area@123!');
-                const hasMasterAo = currentUsers.some(u => u.username.toLowerCase() === 'mikro' && u.password === 'Mikro@123!');
+                const hasMasterAdmin = currentUsers.some(u => u.username && u.username.toLowerCase() === 'admin' && u.password === 'Area@123!');
+                const hasMasterAo = currentUsers.some(u => u.username && u.username.toLowerCase() === 'mikro' && u.password === 'Mikro@123!');
                 if (!hasMasterAdmin || !hasMasterAo) {
-                    const cleanUsers = currentUsers.filter(u => u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro');
+                    const cleanUsers = currentUsers.filter(u => u.username && u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro');
                     const mergedUsers = [...defaultUsers, ...cleanUsers];
                     setAppUsers(mergedUsers);
                     localStorage.setItem('appUsers', JSON.stringify(mergedUsers));
@@ -404,79 +414,96 @@
 
             const showToast = (message, type = 'success') => {
                 setToast({ show: true, message, type });
-                setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+                setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
             };
 
-            const syncFromSheet = async () => {
-                if (!GLOBAL_SHEET_URL) {
-                    showToast('URL Google Sheet belum diatur', 'error');
-                    return;
+            const syncFromSheet = async (overrideUrl = null, silent = false) => {
+                const targetUrl = overrideUrl || sheetUrl;
+                if (!targetUrl || !targetUrl.trim()) {
+                    if (!silent) showToast('URL Google Sheet belum diatur. Silakan atur di menu Kelola & Setting.', 'error');
+                    return false;
                 }
                 setIsLoading(true);
                 try {
-                    const response = await fetch(GLOBAL_SHEET_URL);
-                    if (response.ok) {
-                        const result = await response.json();
-                        
-                        if (result.pencairan && Array.isArray(result.pencairan)) {
-                            const cleaned = result.pencairan.map(it => normalizeRecord(it, true)).filter(Boolean);
-                            setDataPencairan(cleaned);
-                            localStorage.setItem('dataPencairan', JSON.stringify(cleaned));
-                        }
-                        
-                        if (result.estimasi && Array.isArray(result.estimasi)) {
-                            const cleaned = result.estimasi.map(it => normalizeRecord(it, false)).filter(Boolean);
-                            setDataEstimasi(cleaned);
-                            localStorage.setItem('dataEstimasi', JSON.stringify(cleaned));
-                        }
-
-                        if (result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
-                        if (result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
-                        if (result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
-                        if (result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
-                        
-                        if (result.master && result.master.length > 0) {
-                            const ao = [], prod = [], adm = [], cab = [];
-                            result.master.forEach(item => {
-                                if (item.AO && String(item.AO).trim() !== '') ao.push(String(item.AO).trim());
-                                if (item.Produk && String(item.Produk).trim() !== '') prod.push(String(item.Produk).trim());
-                                if (item.AdminMikro && String(item.AdminMikro).trim() !== '') adm.push(String(item.AdminMikro).trim());
-                                if (item.Cabang && String(item.Cabang).trim() !== '') cab.push(String(item.Cabang).trim());
-                            });
-                            const uniqueAo = [...new Set(ao)];
-                            const uniqueProd = [...new Set(prod)];
-                            const uniqueAdm = [...new Set(adm)];
-                            const uniqueCab = [...new Set(cab)];
-                            
-                            if (uniqueAo.length > 0) { setAoList(uniqueAo); localStorage.setItem('aoList', JSON.stringify(uniqueAo)); }
-                            if (uniqueProd.length > 0) { setProductList(uniqueProd); localStorage.setItem('productList', JSON.stringify(uniqueProd)); }
-                            if (uniqueAdm.length > 0) { setAdminList(uniqueAdm); localStorage.setItem('adminList', JSON.stringify(uniqueAdm)); }
-                            if (uniqueCab.length > 0) { setCabangList(uniqueCab); localStorage.setItem('cabangList', JSON.stringify(uniqueCab)); }
-                        }
-                        
-                        if (result.users && result.users.length > 0) {
-                            const mappedUsers = result.users.map(u => ({
-                                username: u.Username || u.username,
-                                password: u.Password || u.password,
-                                role: u.Role || u.role
-                            })).filter(u => u.username);
-
-                            const cleanUsers = mappedUsers.filter(u => u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro');
-                            const finalUsers = [...defaultUsers, ...cleanUsers];
-                            
-                            setAppUsers(finalUsers);
-                            localStorage.setItem('appUsers', JSON.stringify(finalUsers));
-                        }
-                        showToast('Database Berhasil Disinkronisasi!');
+                    const response = await fetch(targetUrl.trim(), { method: 'GET', redirect: 'follow' });
+                    if (!response.ok) {
+                        throw new Error(`Google merespons HTTP status ${response.status} (${response.statusText || 'Error'})`);
                     }
+                    const result = await response.json();
+                    
+                    if (result.error) {
+                        throw new Error(`Error Apps Script: ${result.error}`);
+                    }
+                    
+                    if (result.pencairan && Array.isArray(result.pencairan)) {
+                        const cleaned = result.pencairan.map(it => normalizeRecord(it, true)).filter(Boolean);
+                        setDataPencairan(cleaned);
+                        localStorage.setItem('dataPencairan', JSON.stringify(cleaned));
+                    }
+                    
+                    if (result.estimasi && Array.isArray(result.estimasi)) {
+                        const cleaned = result.estimasi.map(it => normalizeRecord(it, false)).filter(Boolean);
+                        setDataEstimasi(cleaned);
+                        localStorage.setItem('dataEstimasi', JSON.stringify(cleaned));
+                    }
+
+                    if (result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
+                    if (result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
+                    if (result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
+                    if (result.klaim) { setKlaimData(result.klaim); localStorage.setItem('klaimData', JSON.stringify(result.klaim)); }
+                    if (result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
+                    
+                    if (result.master && result.master.length > 0) {
+                        const ao = [], prod = [], adm = [], cab = [];
+                        result.master.forEach(item => {
+                            if (item.AO && String(item.AO).trim() !== '') ao.push(String(item.AO).trim());
+                            if (item.Produk && String(item.Produk).trim() !== '') prod.push(String(item.Produk).trim());
+                            if (item.AdminMikro && String(item.AdminMikro).trim() !== '') adm.push(String(item.AdminMikro).trim());
+                            if (item.Cabang && String(item.Cabang).trim() !== '') cab.push(String(item.Cabang).trim());
+                        });
+                        const uniqueAo = [...new Set(ao)];
+                        const uniqueProd = [...new Set(prod)];
+                        const uniqueAdm = [...new Set(adm)];
+                        const uniqueCab = [...new Set(cab)];
+                        
+                        if (uniqueAo.length > 0) { setAoList(uniqueAo); localStorage.setItem('aoList', JSON.stringify(uniqueAo)); }
+                        if (uniqueProd.length > 0) { setProductList(uniqueProd); localStorage.setItem('productList', JSON.stringify(uniqueProd)); }
+                        if (uniqueAdm.length > 0) { setAdminList(uniqueAdm); localStorage.setItem('adminList', JSON.stringify(uniqueAdm)); }
+                        if (uniqueCab.length > 0) { setCabangList(uniqueCab); localStorage.setItem('cabangList', JSON.stringify(uniqueCab)); }
+                    }
+                    
+                    if (result.users && result.users.length > 0) {
+                        const mappedUsers = result.users.map(u => ({
+                            username: u.Username || u.username,
+                            password: u.Password || u.password,
+                            role: u.Role || u.role
+                        })).filter(u => u.username);
+
+                        const cleanUsers = mappedUsers.filter(u => u.username.toLowerCase() !== 'admin' && u.username.toLowerCase() !== 'mikro');
+                        const finalUsers = [...defaultUsers, ...cleanUsers];
+                        
+                        setAppUsers(finalUsers);
+                        localStorage.setItem('appUsers', JSON.stringify(finalUsers));
+                    }
+                    if (!silent) showToast('Database Berhasil Disinkronisasi!');
+                    setIsLoading(false);
+                    return true;
                 } catch (error) { 
-                    showToast('Gagal menarik data dari Database Google Sheet', 'error'); 
+                    setIsLoading(false);
+                    console.error("Detail Error Sinkronisasi Sheet:", error);
+                    let pesanPenyebab = 'Gagal menarik data dari Database Google Sheet';
+                    if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                        pesanPenyebab = 'Koneksi Ditolak (CORS): Pastikan akses Apps Script disetel "Siapa saja (Anyone)" dan URL benar.';
+                    } else if (error.message) {
+                        pesanPenyebab = error.message;
+                    }
+                    if (!silent) showToast(pesanPenyebab, 'error');
+                    return false;
                 }
-                setIsLoading(false);
             };
 
             const syncMasterToSheet = (newAoList, newProductList, newAdminList, newCabangList) => {
-                if (!GLOBAL_SHEET_URL) return;
+                if (!sheetUrl) return;
                 const maxLen = Math.max(newAoList.length, newProductList.length, newAdminList.length, newCabangList.length);
                 const dataToSave = [['AO', 'Produk', 'AdminMikro', 'Cabang']];
                 for (let i = 0; i < maxLen; i++) {
@@ -487,17 +514,17 @@
                         newCabangList[i] || ''
                     ]);
                 }
-                fetch(GLOBAL_SHEET_URL, {
+                fetch(sheetUrl, {
                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ action: 'save_master', data: dataToSave })
                 });
             };
 
             const syncUsersToSheet = (usersList) => {
-                if (!GLOBAL_SHEET_URL) return;
+                if (!sheetUrl) return;
                 const dataToSave = [['Username', 'Password', 'Role']];
                 usersList.forEach(u => dataToSave.push([u.username, u.password, u.role]));
-                fetch(GLOBAL_SHEET_URL, {
+                fetch(sheetUrl, {
                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ action: 'save_users', data: dataToSave })
                 });
@@ -507,8 +534,9 @@
                 const storedKol1 = localStorage.getItem('kol1Data'); if (storedKol1) setKol1Data(JSON.parse(storedKol1));
                 const storedLar = localStorage.getItem('larData'); if (storedLar) setLarData(JSON.parse(storedLar));
                 const storedNpl = localStorage.getItem('nplData'); if (storedNpl) setNplData(JSON.parse(storedNpl));
+                const storedKlaim = localStorage.getItem('klaimData'); if (storedKlaim) setKlaimData(JSON.parse(storedKlaim));
                 const storedReport = localStorage.getItem('reportData'); if (storedReport) setReportData(JSON.parse(storedReport));
-                syncFromSheet();
+                syncFromSheet(null, true);
             }, [userRole]);
 
             const Login = () => {
@@ -640,7 +668,6 @@
                         AO: (formData.AO || '').trim().toUpperCase()
                     };
                     
-                    // Simpan instan ke state dan LocalStorage
                     if (isReal) {
                         const updated = [newData, ...dataPencairan];
                         setDataPencairan(updated);
@@ -651,9 +678,9 @@
                         localStorage.setItem('dataEstimasi', JSON.stringify(updated));
                     }
                     
-                    if (GLOBAL_SHEET_URL) {
+                    if (sheetUrl) {
                         try {
-                            await fetch(GLOBAL_SHEET_URL, {
+                            await fetch(sheetUrl, {
                                 method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                                 body: JSON.stringify({ action: isReal ? 'add_pencairan' : 'add_estimasi', data: newData })
                             });
@@ -951,9 +978,9 @@
                             }
                             setData(newData);
 
-                            if (GLOBAL_SHEET_URL) {
+                            if (sheetUrl) {
                                 try {
-                                    await fetch(GLOBAL_SHEET_URL, {
+                                    await fetch(sheetUrl, {
                                         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                                         body: JSON.stringify({ action: isReal ? 'delete_pencairan' : 'delete_estimasi', NoKredit: item.NoKredit, Nama: item.Nama, Produk: item.Produk })
                                     });
@@ -1081,7 +1108,7 @@
                                             <th className="p-3.5 font-bold">Plafon</th>
                                             {isReal && <th className="p-3.5 font-bold text-center">Tenor</th>}
                                             <th className="p-3.5 font-bold">{isReal ? 'Admin Mikro' : 'Petugas / AO'}</th>
-                                            {isReal && <th className="p-3.5 font-bold">AO Pemrakarsa</th>}
+                                            <th className="p-3.5 font-bold">AO Pemrakarsa</th>
                                             <th className="p-3.5 font-bold text-center">Aksi</th>
                                         </tr>
                                     </thead>
@@ -1101,19 +1128,17 @@
                                                 <td className="p-3.5 font-extrabold text-emerald-700">{formatRupiah(item.Plafon)}</td>
                                                 {isReal && <td className="p-3.5 text-center text-slate-600">{item.Tenor ? `${item.Tenor} bln` : '-'}</td>}
                                                 <td className="p-3.5 text-slate-600">{item.Petugas || '-'}</td>
-                                                {isReal && (
-                                                    <td className="p-3.5 font-bold text-purple-700 whitespace-nowrap">
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold">
-                                                            <i className="fas fa-user-tie mr-1 text-[10px]"></i>{item.AO || '-'}
-                                                        </span>
-                                                    </td>
-                                                )}
+                                                <td className="p-3.5 font-bold text-purple-700 whitespace-nowrap">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold">
+                                                        <i className="fas fa-user-tie mr-1 text-[10px]"></i>{item.AO || '-'}
+                                                    </span>
+                                                </td>
                                                 <td className="p-3.5 text-center">
                                                     <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition" title="Hapus Data"><i className="fas fa-trash"></i></button>
                                                 </td>
                                             </tr>
                                         ))}
-                                        {filtered.length === 0 && <tr><td colSpan={isReal ? 11 : 8} className="p-8 text-center text-slate-400">Belum ada data pada filter yang dipilih.</td></tr>}
+                                        {filtered.length === 0 && <tr><td colSpan={isReal ? 11 : 10} className="p-8 text-center text-slate-400">Belum ada data pada filter yang dipilih.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -1143,7 +1168,8 @@
                 const colorConfig = {
                     kol1: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', iconBg: 'bg-amber-200', iconText: 'text-amber-800', badge: 'bg-amber-500' },
                     lar: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900', iconBg: 'bg-orange-200', iconText: 'text-orange-800', badge: 'bg-orange-500' },
-                    npl: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900', iconBg: 'bg-red-200', iconText: 'text-red-800', badge: 'bg-red-600' }
+                    npl: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900', iconBg: 'bg-red-200', iconText: 'text-red-800', badge: 'bg-red-600' },
+                    klaim: { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-900', iconBg: 'bg-teal-200', iconText: 'text-teal-800', badge: 'bg-teal-600' }
                 };
                 const conf = colorConfig[type] || colorConfig.lar;
 
@@ -1224,6 +1250,7 @@
                                                     <th className="p-4 font-bold text-center">Tunggakan</th>
                                                     <th className="p-4 font-bold">Cabang</th>
                                                     <th className="p-4 font-bold">Outlet</th>
+                                                    {type === 'klaim' && <th className="p-4 font-bold text-teal-800">Tindak Lanjut Klaim</th>}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -1237,9 +1264,17 @@
                                                         <td className="p-4 text-center text-red-600 font-bold whitespace-nowrap">{item.HARI_TUNGGAKAN} Hari</td>
                                                         <td className="p-4 text-slate-600 whitespace-nowrap">{item.CABANG}</td>
                                                         <td className="p-4 text-slate-600 whitespace-nowrap">{item.OUTLET}</td>
+                                                        {type === 'klaim' && (
+                                                            <td className="p-4 whitespace-nowrap">
+                                                                <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-black bg-teal-50 text-teal-800 border border-teal-200 shadow-sm">
+                                                                    <i className="fas fa-shield-alt mr-1.5 text-teal-600"></i>
+                                                                    {item['TINDAK LANJUT KLAIM'] || item.TINDAK_LANJUT_KLAIM || item['Tindak Lanjut Klaim'] || '-'}
+                                                                </span>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))}
-                                                {filteredData.length === 0 && <tr><td colSpan="8" className="p-8 text-center text-slate-400">Tidak ada data nasabah yang sesuai.</td></tr>}
+                                                {filteredData.length === 0 && <tr><td colSpan={type === 'klaim' ? 9 : 8} className="p-8 text-center text-slate-400">Tidak ada data nasabah yang sesuai.</td></tr>}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1253,6 +1288,7 @@
             const Kol1View = () => <TableNasabahView title="KOL 1 (1 sd 10 Hari)" data={kol1Data} type="kol1" icon="fa-exclamation" />;
             const LarView = () => <TableNasabahView title="LAR (11 sd 30 Hari)" data={larData} type="lar" icon="fa-exclamation-circle" />;
             const NplView = () => <TableNasabahView title="NPL (KOL 3 - 5)" data={nplData} type="npl" icon="fa-times-circle" />;
+            const KlaimView = () => <TableNasabahView title="Tindak Lanjut Klaim" data={klaimData} type="klaim" icon="fa-shield-alt" />;
 
             const ReportRealisasiView = () => {
                 const [selectedCabang, setSelectedCabang] = useState('Semua');
@@ -1411,7 +1447,26 @@
                 const [newProduct, setNewProduct] = useState("");
                 const [newCabang, setNewCabang] = useState("");
                 const [newUser, setNewUser] = useState({ username: "", password: "", role: "ao" });
+                const [tempSheetUrl, setTempSheetUrl] = useState(sheetUrl);
+                const [testingUrl, setTestingUrl] = useState(false);
                 
+                const handleSaveSheetUrl = () => {
+                    if (!tempSheetUrl.trim()) return showToast('URL tidak boleh kosong!', 'error');
+                    setSheetUrl(tempSheetUrl.trim());
+                    localStorage.setItem('globalSheetUrl', tempSheetUrl.trim());
+                    showToast('URL Google Sheet berhasil disimpan!');
+                    syncFromSheet(tempSheetUrl.trim());
+                };
+
+                const handleTestSheetUrl = async () => {
+                    setTestingUrl(true);
+                    const ok = await syncFromSheet(tempSheetUrl.trim());
+                    if (ok) {
+                        showToast('Koneksi Database Berhasil! URL Valid & Terhubung.');
+                    }
+                    setTestingUrl(false);
+                };
+
                 const addCabang = () => {
                     if (!newCabang.trim()) return;
                     const cleanName = newCabang.trim().toUpperCase();
@@ -1556,8 +1611,9 @@
                             const reqKOL1 = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
                             const reqLARNPL = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'UP', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
                             const reqREPORT = ['NAMA_CABANG', 'TARGET_OSL', 'REALISASI_OSL', 'PENCAPAIAN_OSL', 'TARGET_NPL', 'REALISASI_NPL', 'PENCAPAIAN_NPL', 'TARGET_LAR', 'REALISASI_LAR', 'PENCAPAIAN_LAR', 'TARGET_RATA2', 'REALISASI_RATA2', 'PENCAPAIAN_RATA2', 'TARGET_NOA', 'REALISASI_NOA', 'PENCAPAIAN_NOA'];
+                            const reqKLAIM = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM'];
                             
-                            let reqHeaders = type === 'REPORT' ? reqREPORT : (type === 'KOL1' ? reqKOL1 : reqLARNPL);
+                            let reqHeaders = type === 'REPORT' ? reqREPORT : (type === 'KOL1' ? reqKOL1 : (type === 'KLAIM' ? reqKLAIM : reqLARNPL));
 
                             const dataArray = [];
                             const sheetData = [reqHeaders];
@@ -1567,7 +1623,10 @@
                                 if (currentline.length < 3) continue;
                                 const obj = {}; const rowData = [];
                                 reqHeaders.forEach((header) => {
-                                    const headerIndex = headers.indexOf(header);
+                                    let headerIndex = headers.indexOf(header);
+                                    if (headerIndex === -1 && header === 'TINDAK LANJUT KLAIM') {
+                                        headerIndex = headers.indexOf('TINDAK_LANJUT_KLAIM');
+                                    }
                                     const val = headerIndex > -1 && currentline[headerIndex] !== undefined ? currentline[headerIndex] : '';
                                     obj[header] = val;
                                     rowData.push(val);
@@ -1579,10 +1638,11 @@
                             if (type === 'KOL1') { setKol1Data(dataArray); localStorage.setItem('kol1Data', JSON.stringify(dataArray)); }
                             else if (type === 'LAR') { setLarData(dataArray); localStorage.setItem('larData', JSON.stringify(dataArray)); }
                             else if (type === 'NPL') { setNplData(dataArray); localStorage.setItem('nplData', JSON.stringify(dataArray)); }
+                            else if (type === 'KLAIM') { setKlaimData(dataArray); localStorage.setItem('klaimData', JSON.stringify(dataArray)); }
                             else if (type === 'REPORT') { setReportData(dataArray); localStorage.setItem('reportData', JSON.stringify(dataArray)); }
                             
-                            if (GLOBAL_SHEET_URL) {
-                                await fetch(GLOBAL_SHEET_URL, {
+                            if (sheetUrl) {
+                                await fetch(sheetUrl, {
                                     method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                                     body: JSON.stringify({ action: `upload_${type.toLowerCase()}`, data: sheetData })
                                 });
@@ -1605,11 +1665,12 @@
                             if (type === 'KOL1') { setKol1Data([]); localStorage.removeItem('kol1Data'); }
                             else if (type === 'LAR') { setLarData([]); localStorage.removeItem('larData'); }
                             else if (type === 'NPL') { setNplData([]); localStorage.removeItem('nplData'); }
+                            else if (type === 'KLAIM') { setKlaimData([]); localStorage.removeItem('klaimData'); }
                             else if (type === 'REPORT') { setReportData([]); localStorage.removeItem('reportData'); }
                             
-                            if (GLOBAL_SHEET_URL) {
+                            if (sheetUrl) {
                                 try {
-                                    await fetch(GLOBAL_SHEET_URL, {
+                                    await fetch(sheetUrl, {
                                         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
                                         body: JSON.stringify({ action: `upload_${type.toLowerCase()}`, data: [] })
                                     });
@@ -1626,6 +1687,7 @@
                     let headers = '';
                     if (type === 'REPORT') headers = 'NAMA_CABANG,TARGET_OSL,REALISASI_OSL,PENCAPAIAN_OSL,TARGET_NPL,REALISASI_NPL,PENCAPAIAN_NPL,TARGET_LAR,REALISASI_LAR,PENCAPAIAN_LAR,TARGET_RATA2,REALISASI_RATA2,PENCAPAIAN_RATA2,TARGET_NOA,REALISASI_NOA,PENCAPAIAN_NOA\nMEDAN PETISAH,17.698.150.629,17.792.220.707,100.53%,1.66,4.33,38.33%,11.57,18.72,61.81%,16.843.528.392,16.973.417.363,100.77%,175,56,32.01%';
                     else if (type === 'KOL1') headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,TGL_JATUH_TEMPO,KOLEKTIBILITAS,HARI_TUNGGAKAN,OSL,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,01-10-2026,1,5,5000000,UPC A,CH-1,CABANG A';
+                    else if (type === 'KLAIM') headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,TGL_JATUH_TEMPO,KOLEKTIBILITAS,HARI_TUNGGAKAN,OSL,OUTLET,OUTLET_CHANNELING,CABANG,TINDAK LANJUT KLAIM\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,01-10-2026,1,5,5000000,UPC PASAR MERAH,CH-1,MEDAN UTAMA,PROSES PENCAIRAN KLAIM ASURANSI';
                     else headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,KOLEKTIBILITAS,HARI_TUNGGAKAN,UP,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,2,45,5000000,UPC A,CH-1,CABANG A';
                     
                     const blob = new Blob([headers], { type: 'text/csv' });
@@ -1637,6 +1699,67 @@
 
                 return (
                     <div className="space-y-8">
+                        {/* KELOLA & UJI KONEKSI DATABASE GOOGLE APPS SCRIPT */}
+                        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
+                            <div className="flex items-center space-x-3 mb-4 pb-3 border-b border-slate-100">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                                    <i className="fas fa-database"></i>
+                                </div>
+                                <div>
+                                    <h3 className="font-extrabold text-slate-800 text-lg">Koneksi Database Google Spreadsheet</h3>
+                                    <p className="text-xs text-slate-500">Perbarui atau uji tautan Web App Apps Script agar sinkronisasi lancar</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                                        URL Web App Google Apps Script
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={tempSheetUrl} 
+                                        onChange={(e) => setTempSheetUrl(e.target.value)} 
+                                        placeholder="https://script.google.com/macros/s/.../exec" 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono outline-none focus:bg-white focus:ring-2 focus:ring-blue-600 text-slate-800"
+                                    />
+                                </div>
+
+                                <div className="flex flex-wrap gap-3">
+                                    <button 
+                                        onClick={handleSaveSheetUrl}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center shadow-md shadow-blue-600/20"
+                                    >
+                                        <i className="fas fa-save mr-2"></i> Simpan URL
+                                    </button>
+                                    <button 
+                                        onClick={handleTestSheetUrl}
+                                        disabled={testingUrl}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center shadow-md shadow-emerald-600/20"
+                                    >
+                                        <i className={`fas ${testingUrl ? 'fa-spinner fa-spin' : 'fa-plug'} mr-2`}></i> 
+                                        {testingUrl ? 'Menguji...' : 'Uji Koneksi Sekarang'}
+                                    </button>
+                                    <button 
+                                        onClick={() => { setTempSheetUrl(DEFAULT_GLOBAL_SHEET_URL); setSheetUrl(DEFAULT_GLOBAL_SHEET_URL); localStorage.removeItem('globalSheetUrl'); showToast('URL direset ke bawaan'); }}
+                                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center"
+                                    >
+                                        <i className="fas fa-undo mr-1.5"></i> Reset URL Bawaan
+                                    </button>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs text-blue-900 leading-relaxed">
+                                    <p className="font-bold mb-1"><i className="fas fa-info-circle mr-1 text-blue-600"></i> Panduan Deployment Google Apps Script:</p>
+                                    <ol className="list-decimal ml-4 space-y-1 text-blue-800">
+                                        <li>Buka Google Spreadsheet &gt; <strong>Ekstensi &gt; Apps Script</strong>.</li>
+                                        <li>Klik tombol biru <strong>Terapkan (Deploy) &gt; Deployment baru (New deployment)</strong>.</li>
+                                        <li>Pastikan <strong>Jalankan sebagai</strong>: <em>Saya (Me)</em>, dan <strong>Siapa yang memiliki akses</strong>: <strong>Siapa saja (Anyone)</strong>.</li>
+                                        <li>Salin URL Web App yang berakhiran <code>/exec</code> dan tempelkan pada kotak di atas lalu klik <strong>Simpan URL</strong>.</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-amber-50/70 border border-amber-200 p-6 rounded-3xl shadow-sm relative overflow-hidden">
                                 <div className="flex justify-between mb-4">
@@ -1677,6 +1800,20 @@
                                 <div className="relative">
                                     <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'NPL')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                     <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl text-sm font-bold flex items-center justify-center pointer-events-none shadow-sm"><i className="fas fa-upload mr-2"></i> Pilih CSV NPL</button>
+                                </div>
+                            </div>
+
+                            <div className="bg-teal-50/70 border border-teal-200 p-6 rounded-3xl shadow-sm relative overflow-hidden">
+                                <div className="flex justify-between mb-4">
+                                    <div><h3 className="font-bold text-teal-900 text-lg">Upload Tindak Lanjut Klaim</h3><p className="text-sm text-teal-700">Data Monitoring Klaim Mikro</p></div>
+                                    <div className="flex space-x-2">
+                                        <button onClick={() => downloadTemplateCSV('KLAIM')} className="px-3 py-1 bg-white text-teal-800 border border-teal-300 rounded-xl text-xs hover:bg-teal-100 font-bold h-fit">Template</button>
+                                        <button onClick={() => resetData('KLAIM')} className="px-3 py-1 bg-teal-600 text-white rounded-xl text-xs hover:bg-teal-700 font-bold h-fit">Reset</button>
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'KLAIM')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <button className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-2xl text-sm font-bold flex items-center justify-center pointer-events-none shadow-sm"><i className="fas fa-upload mr-2"></i> Pilih CSV Klaim</button>
                                 </div>
                             </div>
 
@@ -1898,6 +2035,7 @@
                                 <button onClick={() => {setActiveTab('repKol1'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'repKol1' ? 'bg-amber-50 text-amber-800 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-exclamation w-6 text-amber-500"></i> KOL 1 (1-10 Hari)</button>
                                 <button onClick={() => {setActiveTab('repLar'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'repLar' ? 'bg-orange-50 text-orange-800 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-exclamation-circle w-6 text-orange-500"></i> LAR 11 - 30 Hari</button>
                                 <button onClick={() => {setActiveTab('repNpl'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'repNpl' ? 'bg-red-50 text-red-800 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-times-circle w-6 text-red-500"></i> NPL (KOL 3 - 5)</button>
+                                <button onClick={() => {setActiveTab('repKlaim'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'repKlaim' ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-shield-alt w-6 text-teal-500"></i> Tindak Lanjut Klaim</button>
                                 <button onClick={() => {setActiveTab('repReal'); setIsSidebarOpen(false)}} className={`w-full text-left px-4 py-3 rounded-2xl mb-1 transition flex items-center text-sm font-semibold ${activeTab === 'repReal' ? 'bg-blue-50 text-blue-800 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}><i className="fas fa-file-alt w-6 text-blue-500"></i> Report Realisasi</button>
                             </div>
 
@@ -1923,7 +2061,7 @@
                                 </div>
                             </div>
                             <div className="flex items-center space-x-3">
-                                <button onClick={syncFromSheet} className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition flex items-center justify-center border border-blue-200 shadow-sm" title="Sinkronisasi Data Sheet">
+                                <button onClick={() => syncFromSheet(null, false)} className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition flex items-center justify-center border border-blue-200 shadow-sm" title="Sinkronisasi Data Sheet">
                                     <i className="fas fa-sync-alt"></i>
                                 </button>
                                 <div className="bg-slate-50 px-4 py-2 rounded-2xl flex items-center border border-slate-200 shadow-sm">
@@ -1944,6 +2082,7 @@
                             {activeTab === 'repKol1' && <Kol1View />}
                             {activeTab === 'repLar' && <LarView />}
                             {activeTab === 'repNpl' && <NplView />}
+                            {activeTab === 'repKlaim' && <KlaimView />}
                             {activeTab === 'repReal' && <ReportRealisasiView />}
                             {activeTab === 'admin' && isAdmin && <AdminPanel />}
                         </div>
