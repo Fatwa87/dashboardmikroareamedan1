@@ -468,10 +468,15 @@
                             setNplData(result.npl); 
                             localStorage.setItem('nplData', JSON.stringify(result.npl)); 
                         }
+                        
+                        // SINKRONISASI KLAIM SECARA LENGKAP & REAKTIF
+                        let klaimCount = 0;
                         if (result.klaim && Array.isArray(result.klaim)) { 
                             setKlaimData(result.klaim); 
                             localStorage.setItem('klaimData', JSON.stringify(result.klaim)); 
+                            klaimCount = result.klaim.length;
                         }
+                        
                         if (result.report && Array.isArray(result.report)) { 
                             setReportData(result.report); 
                             localStorage.setItem('reportData', JSON.stringify(result.report)); 
@@ -511,7 +516,13 @@
                         }
                         
                         setCloudStatus('connected');
-                        if (showNotification) showToast('Database Cloud Berhasil Disinkronkan!');
+                        if (showNotification) {
+                            if (result.klaim === undefined) {
+                                showToast('Tersambung, namun server Google belum mengirim data KLAIM. Wajib Deploy Versi Baru di Apps Script!', 'error');
+                            } else {
+                                showToast(`Database Cloud Terhubung! (${klaimCount} data Klaim dimuat)`);
+                            }
+                        }
                         setIsLoading(false);
                         return true;
                     } else {
