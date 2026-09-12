@@ -78,7 +78,8 @@
         };
 
         const formatRupiah = (angka) => {
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+            const cleanNum = Number(String(angka || 0).replace(/\D/g, '')) || 0;
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(cleanNum);
         };
 
         const normalizeRecord = (item, isReal = true) => {
@@ -155,7 +156,6 @@
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const todayStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-                // Garis Aksen & Kop Surat Resmi
                 doc.setFillColor(15, 23, 42);
                 doc.rect(12, 10, pageWidth - 24, 1.2, 'F');
 
@@ -183,7 +183,6 @@
 
                 let startY = subtitle ? 30 : 27;
 
-                // Kotak Metrik Ringkasan
                 if (summaryStats && summaryStats.length > 0) {
                     let badgeX = 12;
                     summaryStats.forEach((stat) => {
@@ -360,6 +359,8 @@
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
+            const [dbModal, setDbModal] = useState(false);
+            const [cloudStatus, setCloudStatus] = useState('unknown'); // 'connected', 'error', 'connecting'
 
             const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('customSheetUrl') || DEFAULT_SHEET_URL);
 
@@ -376,11 +377,21 @@
                 } catch(e) { return []; }
             });
 
-            const [kol1Data, setKol1Data] = useState([]);
-            const [larData, setLarData] = useState([]);
-            const [nplData, setNplData] = useState([]);
-            const [klaimData, setKlaimData] = useState([]);
-            const [reportData, setReportData] = useState([]);
+            const [kol1Data, setKol1Data] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('kol1Data')) || []; } catch(e) { return []; }
+            });
+            const [larData, setLarData] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('larData')) || []; } catch(e) { return []; }
+            });
+            const [nplData, setNplData] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('nplData')) || []; } catch(e) { return []; }
+            });
+            const [klaimData, setKlaimData] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('klaimData')) || []; } catch(e) { return []; }
+            });
+            const [reportData, setReportData] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('reportData')) || []; } catch(e) { return []; }
+            });
             
             const [aoList, setAoList] = useState(JSON.parse(localStorage.getItem('aoList')) || ['AO MEDAN', 'AO BINJAI', 'AO TEBING']);
             const [adminList, setAdminList] = useState(JSON.parse(localStorage.getItem('adminList')) || ['ADMIN MIKRO 1', 'ADMIN MIKRO 2']);
@@ -407,20 +418,31 @@
 
             const showToast = (message, type = 'success') => {
                 setToast({ show: true, message, type });
-                setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+                setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
             };
 
             const syncFromSheet = async (customUrl = null, showNotification = true) => {
-                const targetUrl = customUrl || sheetUrl || DEFAULT_SHEET_URL;
-                if (!targetUrl) {
+                const targetBaseUrl = (customUrl || sheetUrl || DEFAULT_SHEET_URL).trim();
+                if (!targetBaseUrl) {
                     if (showNotification) showToast('URL Google Sheet belum ditentukan', 'error');
+                    setCloudStatus('error');
                     return false;
                 }
+                
+                // Tambahkan parameter anti-cache agar browser HP selalu mengambil data terbaru dari server
+                const separator = targetBaseUrl.includes('?') ? '&' : '?';
+                const fetchUrl = `${targetBaseUrl}${separator}t=${Date.now()}`;
+
                 setIsLoading(true);
+                setCloudStatus('connecting');
                 try {
-                    const response = await fetch(targetUrl);
+                    const response = await fetch(fetchUrl);
                     if (response.ok) {
                         const result = await response.json();
+
+                        if (result.error) {
+                            throw new Error(`Google Apps Script Error: ${result.error}`);
+                        }
                         
                         if (result.pencairan && Array.isArray(result.pencairan)) {
                             const cleaned = result.pencairan.map(it => normalizeRecord(it, true)).filter(Boolean);
@@ -434,16 +456,28 @@
                             localStorage.setItem('dataEstimasi', JSON.stringify(cleaned));
                         }
 
-                        if (result.kol1) { setKol1Data(result.kol1); localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); }
-                        if (result.lar) { setLarData(result.lar); localStorage.setItem('larData', JSON.stringify(result.lar)); }
-                        if (result.npl) { setNplData(result.npl); localStorage.setItem('nplData', JSON.stringify(result.npl)); }
+                        if (result.kol1 && Array.isArray(result.kol1)) { 
+                            setKol1Data(result.kol1); 
+                            localStorage.setItem('kol1Data', JSON.stringify(result.kol1)); 
+                        }
+                        if (result.lar && Array.isArray(result.lar)) { 
+                            setLarData(result.lar); 
+                            localStorage.setItem('larData', JSON.stringify(result.lar)); 
+                        }
+                        if (result.npl && Array.isArray(result.npl)) { 
+                            setNplData(result.npl); 
+                            localStorage.setItem('nplData', JSON.stringify(result.npl)); 
+                        }
                         if (result.klaim && Array.isArray(result.klaim)) { 
                             setKlaimData(result.klaim); 
                             localStorage.setItem('klaimData', JSON.stringify(result.klaim)); 
                         }
-                        if (result.report) { setReportData(result.report); localStorage.setItem('reportData', JSON.stringify(result.report)); }
+                        if (result.report && Array.isArray(result.report)) { 
+                            setReportData(result.report); 
+                            localStorage.setItem('reportData', JSON.stringify(result.report)); 
+                        }
                         
-                        if (result.master && result.master.length > 0) {
+                        if (result.master && Array.isArray(result.master) && result.master.length > 0) {
                             const ao = [], prod = [], adm = [], cab = [];
                             result.master.forEach(item => {
                                 if (item.AO && String(item.AO).trim() !== '') ao.push(String(item.AO).trim());
@@ -462,7 +496,7 @@
                             if (uniqueCab.length > 0) { setCabangList(uniqueCab); localStorage.setItem('cabangList', JSON.stringify(uniqueCab)); }
                         }
                         
-                        if (result.users && result.users.length > 0) {
+                        if (result.users && Array.isArray(result.users) && result.users.length > 0) {
                             const mappedUsers = result.users.map(u => ({
                                 username: u.Username || u.username,
                                 password: u.Password || u.password,
@@ -475,16 +509,19 @@
                             setAppUsers(finalUsers);
                             localStorage.setItem('appUsers', JSON.stringify(finalUsers));
                         }
-                        if (showNotification) showToast('Database Berhasil Disinkronisasi!');
+                        
+                        setCloudStatus('connected');
+                        if (showNotification) showToast('Database Cloud Berhasil Disinkronkan!');
                         setIsLoading(false);
                         return true;
                     } else {
-                        throw new Error(`HTTP Error ${response.status}`);
+                        throw new Error(`HTTP ${response.status}: Server Google menolak permintaan.`);
                     }
                 } catch (error) { 
                     console.error("Sync Error:", error);
+                    setCloudStatus('error');
                     if (showNotification) {
-                        showToast('Gagal menarik data dari Database Google Sheet. Periksa izin deployment Web App.', 'error'); 
+                        showToast(`Gagal menarik data: ${error.message || 'Periksa izin deployment Web App'}.`, 'error'); 
                     }
                     setIsLoading(false);
                     return false;
@@ -522,11 +559,6 @@
             };
 
             useEffect(() => {
-                const storedKol1 = localStorage.getItem('kol1Data'); if (storedKol1) setKol1Data(JSON.parse(storedKol1));
-                const storedLar = localStorage.getItem('larData'); if (storedLar) setLarData(JSON.parse(storedLar));
-                const storedNpl = localStorage.getItem('nplData'); if (storedNpl) setNplData(JSON.parse(storedNpl));
-                const storedKlaim = localStorage.getItem('klaimData'); if (storedKlaim) setKlaimData(JSON.parse(storedKlaim));
-                const storedReport = localStorage.getItem('reportData'); if (storedReport) setReportData(JSON.parse(storedReport));
                 syncFromSheet(null, false);
             }, [userRole]);
 
@@ -547,7 +579,7 @@
                         localStorage.setItem('userRole', validUser.role);
                         setActiveTab(validUser.role === 'admin' ? 'dashReal' : 'inReal');
                     } else {
-                        setLoginError('Username atau password salah!');
+                        setLoginError('Username atau password salah! (Cek kembali huruf besar/kecil)');
                     }
                 };
 
@@ -565,8 +597,9 @@
                             
                             <form onSubmit={processLogin} className="space-y-5 text-left">
                                 {loginError && (
-                                    <div className="bg-red-50 text-red-600 p-3 rounded-2xl text-xs font-bold flex items-center border border-red-200">
-                                        <i className="fas fa-exclamation-circle mr-2 text-sm"></i>{loginError}
+                                    <div className="bg-red-50 text-red-600 p-3.5 rounded-2xl text-xs font-bold flex items-center border border-red-200">
+                                        <i className="fas fa-exclamation-circle mr-2 text-sm flex-shrink-0"></i>
+                                        <span>{loginError}</span>
                                     </div>
                                 )}
                                 <div>
@@ -610,6 +643,7 @@
                                     <i className="fas fa-sign-in-alt mr-2"></i> Masuk Aplikasi
                                 </button>
                             </form>
+
                             <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400 font-medium">
                                 <p>&copy; 2026 PT. Pegadaian Area Medan 1</p>
                             </div>
@@ -1161,28 +1195,32 @@
                 
                 useEffect(() => { setSelectedOutlet('Semua'); }, [selectedCabang]);
                 
-                const cabangListFilter = ['Semua', ...new Set(data.map(item => item.CABANG).filter(Boolean))];
-                const availableOutlets = data.filter(item => selectedCabang === 'Semua' || item.CABANG === selectedCabang).map(item => item.OUTLET).filter(Boolean);
+                const getCabangVal = (item) => String(item.CABANG || item.Cabang || item.NamaCabang || '').trim();
+                const getOutletVal = (item) => String(item.OUTLET || item.Outlet || '').trim();
+
+                const cabangListFilter = ['Semua', ...new Set(data.map(getCabangVal).filter(Boolean))];
+                const availableOutlets = data.filter(item => selectedCabang === 'Semua' || getCabangVal(item).toLowerCase() === selectedCabang.toLowerCase()).map(getOutletVal).filter(Boolean);
                 const outletList = ['Semua', ...new Set(availableOutlets)];
 
                 const filteredData = data.filter(item => {
-                    const matchCabang = selectedCabang === 'Semua' || item.CABANG === selectedCabang;
-                    const matchOutlet = selectedOutlet === 'Semua' || item.OUTLET === selectedOutlet;
+                    const cVal = getCabangVal(item);
+                    const oVal = getOutletVal(item);
+                    const matchCabang = selectedCabang === 'Semua' || cVal.toLowerCase() === selectedCabang.toLowerCase();
+                    const matchOutlet = selectedOutlet === 'Semua' || oVal.toLowerCase() === selectedOutlet.toLowerCase();
                     
                     let matchSearch = true;
                     if (searchTerm.trim()) {
                         const term = searchTerm.toLowerCase();
-                        matchSearch = (item.CUSTOMER_NM && item.CUSTOMER_NM.toLowerCase().includes(term)) ||
-                                      (item.NO_KONTRAK && String(item.NO_KONTRAK).toLowerCase().includes(term)) ||
-                                      (type === 'klaim' && (
-                                          (item['TINDAK LANJUT KLAIM'] && item['TINDAK LANJUT KLAIM'].toLowerCase().includes(term)) ||
-                                          (item.TINDAK_LANJUT_KLAIM && item.TINDAK_LANJUT_KLAIM.toLowerCase().includes(term))
-                                      ));
+                        const namaCust = String(item.CUSTOMER_NM || item.Nama || item.NamaNasabah || '').toLowerCase();
+                        const noKontrak = String(item.NO_KONTRAK || item.NoKontrak || '').toLowerCase();
+                        const tindakLanjut = String(item['TINDAK LANJUT KLAIM'] || item.TINDAK_LANJUT_KLAIM || item.TindakLanjut || '').toLowerCase();
+                        
+                        matchSearch = namaCust.includes(term) || noKontrak.includes(term) || (type === 'klaim' && tindakLanjut.includes(term));
                     }
                     return matchCabang && matchOutlet && matchSearch;
                 });
                 
-                const totalOut = filteredData.reduce((sum, item) => sum + (Number(item.UP || item.OSL) || 0), 0);
+                const totalOut = filteredData.reduce((sum, item) => sum + (Number(String(item.UP || item.OSL || item.Plafon || 0).replace(/\D/g, '')) || 0), 0);
 
                 const colorConfig = {
                     kol1: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', iconBg: 'bg-amber-200', iconText: 'text-amber-800', badge: 'bg-amber-500' },
@@ -1222,10 +1260,10 @@
                             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
                                 <button 
                                     onClick={() => syncFromSheet(null, true)} 
-                                    className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition flex items-center justify-center shadow-sm"
+                                    className="w-full sm:w-auto px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-2xl text-xs font-bold transition flex items-center justify-center shadow-sm"
                                     title="Tarik Data Terbaru dari Cloud Google Sheet"
                                 >
-                                    <i className="fas fa-sync-alt mr-2 text-blue-600"></i> Refresh Cloud
+                                    <i className="fas fa-cloud-download-alt mr-2 text-blue-600 text-sm"></i> Tarik Cloud
                                 </button>
                                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                                     <label className="text-xs font-bold text-slate-500 whitespace-nowrap">Cabang:</label>
@@ -1262,12 +1300,20 @@
                         </div>
 
                         {data.length === 0 ? (
-                            <div className={`${conf.bg} ${conf.text} p-8 text-center rounded-3xl border ${conf.border}`}>
-                                <i className={`fas fa-folder-open text-4xl mb-3`}></i>
-                                <h3 className="text-lg font-bold">Belum Ada Data {title}</h3>
-                                <p className="text-sm mt-1 opacity-80">
-                                    Silakan lakukan upload file CSV melalui menu Kelola & Setting atau klik tombol <strong>Refresh Cloud</strong> di atas.
+                            <div className={`${conf.bg} ${conf.text} p-10 text-center rounded-3xl border ${conf.border} flex flex-col items-center justify-center`}>
+                                <div className={`w-16 h-16 ${conf.iconBg} ${conf.iconText} rounded-3xl flex items-center justify-center text-3xl mb-4 shadow-sm`}>
+                                    <i className={`fas ${icon}`}></i>
+                                </div>
+                                <h3 className="text-xl font-bold">Belum Ada Data {title} di Perangkat Ini</h3>
+                                <p className="text-sm mt-1.5 opacity-80 max-w-md">
+                                    Jika data sudah diupload oleh Admin di spreadsheet, silakan klik tombol di bawah untuk mengambil data langsung dari Cloud.
                                 </p>
+                                <button 
+                                    onClick={() => syncFromSheet(null, true)}
+                                    className="mt-5 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-600/30 transition flex items-center"
+                                >
+                                    <i className="fas fa-sync-alt mr-2.5"></i> Tarik Data dari Cloud Sekarang
+                                </button>
                             </div>
                         ) : (
                             <div>
@@ -1299,17 +1345,26 @@
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredData.map((item, index) => {
+                                                    const noKontrak = item.NO_KONTRAK || item.NoKontrak || '-';
+                                                    const custNm = item.CUSTOMER_NM || item.Nama || item.NamaNasabah || '-';
+                                                    const subProd = item['SUB PRODUK'] || item.SUB_PRODUK || item.Produk || '-';
+                                                    const outVal = item.UP || item.OSL || item.Plafon || 0;
+                                                    const kolVal = item.KOLEKTIBILITAS || item.Kol || '-';
+                                                    const tunggakan = item.HARI_TUNGGAKAN || item.Tunggakan || '0';
+                                                    const cabVal = item.CABANG || item.Cabang || '-';
+                                                    const outLetVal = item.OUTLET || item.Outlet || '-';
                                                     const tindakLanjut = item['TINDAK LANJUT KLAIM'] || item.TINDAK_LANJUT_KLAIM || item.TindakLanjut || '-';
+                                                    
                                                     return (
                                                         <tr key={index} className="hover:bg-slate-50 text-sm">
-                                                            <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{item.NO_KONTRAK}</td>
-                                                            <td className="p-4 text-slate-700 font-medium">{item.CUSTOMER_NM}</td>
-                                                            <td className="p-4 text-slate-600 whitespace-nowrap">{item['SUB PRODUK']}</td>
-                                                            <td className="p-4 font-extrabold text-slate-900">{formatRupiah(item.UP || item.OSL)}</td>
-                                                            <td className="p-4 text-center"><span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-100 text-slate-800">{item.KOLEKTIBILITAS || '-'}</span></td>
-                                                            <td className="p-4 text-center text-red-600 font-bold whitespace-nowrap">{item.HARI_TUNGGAKAN} Hari</td>
-                                                            <td className="p-4 text-slate-600 whitespace-nowrap">{item.CABANG}</td>
-                                                            <td className="p-4 text-slate-600 whitespace-nowrap">{item.OUTLET}</td>
+                                                            <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{noKontrak}</td>
+                                                            <td className="p-4 text-slate-700 font-medium">{custNm}</td>
+                                                            <td className="p-4 text-slate-600 whitespace-nowrap">{subProd}</td>
+                                                            <td className="p-4 font-extrabold text-slate-900">{formatRupiah(outVal)}</td>
+                                                            <td className="p-4 text-center"><span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-100 text-slate-800">{kolVal}</span></td>
+                                                            <td className="p-4 text-center text-red-600 font-bold whitespace-nowrap">{tunggakan} Hari</td>
+                                                            <td className="p-4 text-slate-600 whitespace-nowrap">{cabVal}</td>
+                                                            <td className="p-4 text-slate-600 whitespace-nowrap">{outLetVal}</td>
                                                             {type === 'klaim' && (
                                                                 <td className="p-4 font-semibold whitespace-nowrap">
                                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-extrabold bg-teal-100 text-teal-800 border border-teal-200">
@@ -1338,9 +1393,10 @@
 
             const ReportRealisasiView = () => {
                 const [selectedCabang, setSelectedCabang] = useState('Semua');
-                const cabangListReport = ['Semua', ...new Set(reportData.map(item => item.NAMA_CABANG).filter(Boolean))];
+                const getCabangRep = (item) => String(item.NAMA_CABANG || item.Cabang || item.NamaCabang || '').trim();
+                const cabangListReport = ['Semua', ...new Set(reportData.map(getCabangRep).filter(Boolean))];
                 
-                const filteredData = selectedCabang === 'Semua' ? reportData : reportData.filter(item => item.NAMA_CABANG === selectedCabang);
+                const filteredData = selectedCabang === 'Semua' ? reportData : reportData.filter(item => getCabangRep(item).toLowerCase() === selectedCabang.toLowerCase());
                 const isSingle = selectedCabang !== 'Semua' && filteredData.length === 1;
                 const singleData = isSingle ? filteredData[0] : null;
 
@@ -1348,6 +1404,7 @@
                     setIsLoading(true);
                     let success = false;
                     if (isSingle) {
+                        const cabName = getCabangRep(singleData);
                         const scorecardBody = [
                             ['1. OSL (Outstanding)', singleData.TARGET_OSL, singleData.REALISASI_OSL, singleData.PENCAPAIAN_OSL],
                             ['2. NPL (Non-Performing)', singleData.TARGET_NPL, singleData.REALISASI_NPL, singleData.PENCAPAIAN_NPL],
@@ -1356,9 +1413,9 @@
                             ['5. NOA Baru (Nasabah)', singleData.TARGET_NOA, singleData.REALISASI_NOA, singleData.PENCAPAIAN_NOA]
                         ];
                         success = generatePdfReport({
-                            title: `RAPOR PENCAPAIAN TARGET: ${singleData.NAMA_CABANG}`,
+                            title: `RAPOR PENCAPAIAN TARGET: ${cabName}`,
                             subtitle: `Periode Data Berjalan - PT. Pegadaian Area Medan 1`,
-                            filename: `Rapor_Cabang_${singleData.NAMA_CABANG.replace(/\s+/g, '_')}.pdf`,
+                            filename: `Rapor_Cabang_${cabName.replace(/\s+/g, '_')}.pdf`,
                             customHeaders: [['Indikator Kinerja Utama', 'Target', 'Realisasi', 'Pencapaian']],
                             customBody: scorecardBody,
                             orientation: 'portrait',
@@ -1394,13 +1451,20 @@
                         </div>
 
                         {reportData.length === 0 ? (
-                            <div className="bg-blue-50/50 text-blue-900 p-8 text-center rounded-3xl border border-blue-200"><i className="fas fa-chart-line text-4xl mb-3 opacity-80"></i><h3 className="text-lg font-bold">Belum Ada Data Report</h3><p className="text-sm mt-1">Silakan minta Admin untuk mengupload CSV Report Realisasi.</p></div>
+                            <div className="bg-blue-50/50 text-blue-900 p-10 text-center rounded-3xl border border-blue-200 flex flex-col items-center">
+                                <i className="fas fa-chart-line text-4xl mb-3 opacity-80"></i>
+                                <h3 className="text-lg font-bold">Belum Ada Data Report di Perangkat Ini</h3>
+                                <p className="text-sm mt-1 max-w-md opacity-80">Silakan klik tombol di bawah untuk menyinkronkan data report dari Cloud.</p>
+                                <button onClick={() => syncFromSheet(null, true)} className="mt-4 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md">
+                                    <i className="fas fa-sync-alt mr-2"></i> Tarik Report Cloud
+                                </button>
+                            </div>
                         ) : (
                             <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
                                 {isSingle ? (
                                     <div className="space-y-8">
                                         <div className="text-center pb-4 border-b border-slate-100">
-                                            <h3 className="text-xl font-bold text-slate-800 mb-1">Rapor Pencapaian: {singleData.NAMA_CABANG}</h3>
+                                            <h3 className="text-xl font-bold text-slate-800 mb-1">Rapor Pencapaian: {getCabangRep(singleData)}</h3>
                                             <p className="text-sm text-slate-500">Periode Data Berjalan PT. Pegadaian Area Medan 1</p>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
@@ -1469,7 +1533,7 @@
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredData.map((item, idx) => (
                                                     <tr key={idx} className="hover:bg-slate-50">
-                                                        <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{item.NAMA_CABANG}</td>
+                                                        <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{getCabangRep(item)}</td>
                                                         <td className="p-2 text-slate-600 border-l whitespace-nowrap">{item.TARGET_OSL}</td><td className="p-2 text-slate-600 whitespace-nowrap">{item.REALISASI_OSL}</td><td className="p-2 font-bold text-blue-600 bg-blue-50/30 whitespace-nowrap">{item.PENCAPAIAN_OSL}</td>
                                                         <td className="p-2 text-slate-600 border-l whitespace-nowrap">{item.TARGET_NPL}</td><td className="p-2 text-slate-600 whitespace-nowrap">{item.REALISASI_NPL}</td><td className="p-2 font-bold text-red-600 bg-red-50/30 whitespace-nowrap">{item.PENCAPAIAN_NPL}</td>
                                                         <td className="p-2 text-slate-600 border-l whitespace-nowrap">{item.TARGET_LAR}</td><td className="p-2 text-slate-600 whitespace-nowrap">{item.REALISASI_LAR}</td><td className="p-2 font-bold text-orange-600 bg-orange-50/30 whitespace-nowrap">{item.PENCAPAIAN_LAR}</td>
@@ -1978,7 +2042,7 @@
             const isAdmin = userRole === 'admin';
 
             return (
-                <div className="flex bg-slate-50 font-sans text-slate-800">
+                <div className="flex bg-slate-50 font-sans text-slate-800 min-h-screen">
                     {toast.show && (
                         <div className={`fixed top-4 right-4 z-50 px-6 py-3.5 rounded-2xl shadow-xl text-white font-bold text-sm flex items-center toast-enter ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
                             <i className={`fas ${toast.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-3 text-lg`}></i> {toast.message}
@@ -1989,7 +2053,7 @@
                         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
                             <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-200">
                                 <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-3"></i>
-                                <p className="font-bold text-slate-700 text-sm">Memproses Data...</p>
+                                <p className="font-bold text-slate-700 text-sm">Menyinkronkan Cloud Database...</p>
                             </div>
                         </div>
                     )}
@@ -2016,9 +2080,51 @@
                         </div>
                     )}
 
+                    {/* Modal Bantuan Diagnostik Koneksi Cloud */}
+                    {dbModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                            <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100">
+                                <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                                            <i className="fas fa-network-wired"></i>
+                                        </div>
+                                        <h3 className="font-extrabold text-slate-900 text-lg">Status Koneksi Cloud</h3>
+                                    </div>
+                                    <button onClick={() => setDbModal(false)} className="text-slate-400 hover:text-slate-600 p-2"><i className="fas fa-times"></i></button>
+                                </div>
+                                
+                                <div className="space-y-4 text-xs text-slate-600">
+                                    <div className={`p-4 rounded-2xl flex items-center space-x-3 ${cloudStatus === 'connected' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                                        <i className={`fas ${cloudStatus === 'connected' ? 'fa-check-circle text-emerald-600' : 'fa-exclamation-circle text-red-600'} text-2xl`}></i>
+                                        <div>
+                                            <p className="font-bold text-sm">{cloudStatus === 'connected' ? 'Database Terhubung Normal' : 'Koneksi Cloud Terputus / Ditolak'}</p>
+                                            <p className="text-[11px] mt-0.5 opacity-90">{cloudStatus === 'connected' ? 'Seluruh data nasabah, rekap, dan master data tersinkronisasi.' : 'Google Spreadsheet menolak akses dari perangkat ini.'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 font-mono text-[11px] break-all">
+                                        <span className="font-bold text-slate-500 block mb-1">Target Endpoint Web App:</span>
+                                        {sheetUrl || DEFAULT_SHEET_URL}
+                                    </div>
+
+                                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900">
+                                        <p className="font-bold mb-1"><i className="fas fa-info-circle mr-1.5"></i>Panduan untuk Admin:</p>
+                                        <p className="leading-relaxed">Jika HP AO tidak bisa membaca data, pastikan di Google Spreadsheet: <strong>Deploy &gt; Manage Deployments &gt; Who has access</strong> diatur ke <strong>"Anyone (Siapa saja)"</strong>, dan <strong>Execute as: "Me"</strong>.</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 flex space-x-3 justify-end">
+                                    <button onClick={() => { syncFromSheet(null, true); setDbModal(false); }} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center">
+                                        <i className="fas fa-sync-alt mr-2"></i> Sinkronkan Ulang Sekarang
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className={`mobile-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
 
-                    {/* Sidebar Navigasi */}
                     <aside className={`sidebar-container ${isSidebarOpen ? 'open' : ''} flex flex-col`}>
                         <div className="p-6 border-b border-slate-100 flex items-center flex-col text-center">
                             <RocketLogo size={70} />
@@ -2059,7 +2165,6 @@
                         </div>
                     </aside>
 
-                    {/* Area Konten Utama */}
                     <main className="main-content">
                         <header className="flex justify-between items-center mb-8 bg-white p-4 md:px-6 rounded-3xl shadow-sm border border-slate-200">
                             <div className="flex items-center">
@@ -2069,10 +2174,22 @@
                                     <p className="text-xs text-slate-400 font-medium hidden sm:block">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                 </div>
                             </div>
+                            
                             <div className="flex items-center space-x-3">
+                                {/* Lencana Status Koneksi Cloud */}
+                                <button 
+                                    onClick={() => setDbModal(true)}
+                                    className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center transition shadow-sm border ${cloudStatus === 'connected' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 animate-pulse'}`}
+                                    title="Cek Status Database Cloud"
+                                >
+                                    <span className={`w-2 h-2 rounded-full mr-2 ${cloudStatus === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                    <span className="hidden sm:inline">{cloudStatus === 'connected' ? 'Cloud Terhubung' : 'Cloud Terputus'}</span>
+                                </button>
+
                                 <button onClick={() => syncFromSheet(null, true)} className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition flex items-center justify-center border border-blue-200 shadow-sm" title="Sinkronisasi Data Sheet">
                                     <i className="fas fa-sync-alt"></i>
                                 </button>
+                                
                                 <div className="bg-slate-50 px-4 py-2 rounded-2xl flex items-center border border-slate-200 shadow-sm">
                                     <i className="fas fa-user-circle text-slate-400 mr-2 text-lg"></i>
                                     <span className="text-xs font-bold text-slate-700 mr-3 hidden sm:inline">Hi, {isAdmin ? 'Admin' : 'AO'}</span>
