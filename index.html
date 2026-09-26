@@ -59,6 +59,7 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
     <!-- jsPDF & AutoTable -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1961,6 +1962,12 @@
             const [selectedOutlet, setSelectedOutlet] = useState('Semua');
             const [searchTerm, setSearchTerm] = useState('');
 
+            const displayColumns = type === 'kol1'
+                ? ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG']
+                : type === 'klaim'
+                    ? ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM']
+                    : ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
+
             useEffect(() => { setSelectedOutlet('Semua'); }, [selectedCabang]);
 
             const getCabangVal = (item) => String(item.CABANG || item.Cabang || item.NamaCabang || '').trim();
@@ -1979,16 +1986,12 @@
                 let matchSearch = true;
                 if (searchTerm.trim()) {
                     const term = searchTerm.toLowerCase();
-                    const namaCust = String(item.CUSTOMER_NM || item.Nama || item.NamaNasabah || '').toLowerCase();
-                    const noKontrak = String(item.NO_KONTRAK || item.NoKontrak || '').toLowerCase();
-                    const tindakLanjut = String(item['TINDAK LANJUT KLAIM'] || item.TINDAK_LANJUT_KLAIM || item.TindakLanjut || '').toLowerCase();
-
-                    matchSearch = namaCust.includes(term) || noKontrak.includes(term) || (type === 'klaim' && tindakLanjut.includes(term));
+                    matchSearch = displayColumns.some(column => String(item[column] || '').toLowerCase().includes(term));
                 }
                 return matchCabang && matchOutlet && matchSearch;
             });
 
-            const totalOut = filteredData.reduce((sum, item) => sum + (Number(String(item.UP || item.OSL || item.Plafon || 0).replace(/\D/g, '')) || 0), 0);
+            const totalOut = filteredData.reduce((sum, item) => sum + (Number(String(item.OSL || item.UP || item.Plafon || 0).replace(/\D/g, '')) || 0), 0);
 
             const colorConfig = {
                 kol1: {
@@ -2042,7 +2045,7 @@
                                     <h2 className="text-2xl font-black text-slate-900 font-heading">
                                         Pemantauan Khusus {title}
                                     </h2>
-                                    <p className="text-xs text-slate-500 font-medium">Data kredit mikro hasil upload CSV terbaru</p>
+                                    <p className="text-xs text-slate-500 font-medium">Data Excel yang sudah difilter otomatis sesuai kolektibilitas</p>
                                 </div>
                             </div>
                         </div>
@@ -2108,7 +2111,7 @@
                             </div>
                             <h3 className="text-xl font-black font-heading">Belum Ada Data {title} di Perangkat Ini</h3>
                             <p className="text-xs md:text-sm mt-1.5 opacity-80 max-w-md font-medium">
-                                Jika data sudah diupload oleh Admin ke Google Spreadsheet, silakan klik tombol di bawah untuk menyinkronkan langsung.
+                                Unggah file Excel Data Mikro melalui menu Kelola & Setting khusus, atau tarik data yang sudah tersimpan di Google Spreadsheet.
                             </p>
                             <button
                                 onClick={() => syncFromSheet(null, true)}
@@ -2146,56 +2149,24 @@
                                     <table id={`table-nasabah-${type}`} className="w-full text-left border-collapse text-xs md:text-sm">
                                         <thead>
                                             <tr className="bg-slate-100/70 text-slate-700 uppercase tracking-wider text-[11px] font-heading border-b border-slate-200">
-                                                <th className="p-4 font-extrabold">No. Kontrak</th>
-                                                <th className="p-4 font-extrabold">Nama Nasabah</th>
-                                                <th className="p-4 font-extrabold">Produk</th>
-                                                <th className="p-4 font-extrabold">Outstanding</th>
-                                                <th className="p-4 font-extrabold text-center">Kol</th>
-                                                <th className="p-4 font-extrabold text-center">Tunggakan</th>
-                                                <th className="p-4 font-extrabold">Cabang</th>
-                                                <th className="p-4 font-extrabold">Outlet</th>
-                                                {type === 'klaim' && <th className="p-4 font-extrabold text-teal-900">Tindak Lanjut Klaim</th>}
+                                                {displayColumns.map(column => <th key={column} className="p-4 font-extrabold whitespace-nowrap">{column}</th>)}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {filteredData.map((item, index) => {
-                                                const noKontrak = item.NO_KONTRAK || item.NoKontrak || '-';
-                                                const custNm = item.CUSTOMER_NM || item.Nama || item.NamaNasabah || '-';
-                                                const subProd = item['SUB PRODUK'] || item.SUB_PRODUK || item.Produk || '-';
-                                                const outVal = item.UP || item.OSL || item.Plafon || 0;
-                                                const kolVal = item.KOLEKTIBILITAS || item.Kol || '-';
-                                                const tunggakan = item.HARI_TUNGGAKAN || item.Tunggakan || '0';
-                                                const cabVal = item.CABANG || item.Cabang || '-';
-                                                const outLetVal = item.OUTLET || item.Outlet || '-';
-                                                const tindakLanjut = item['TINDAK LANJUT KLAIM'] || item.TINDAK_LANJUT_KLAIM || item.TindakLanjut || '-';
-
                                                 return (
                                                     <tr key={index} className="hover:bg-slate-50/80 transition-colors">
-                                                        <td className="p-4 font-mono font-bold text-slate-900 whitespace-nowrap">{noKontrak}</td>
-                                                        <td className="p-4 text-slate-800 font-semibold">{custNm}</td>
-                                                        <td className="p-4 text-slate-600 whitespace-nowrap">{subProd}</td>
-                                                        <td className="p-4 font-black text-slate-900 tnum">{formatRupiah(outVal)}</td>
-                                                        <td className="p-4 text-center">
-                                                            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-100 text-slate-800 border border-slate-200">
-                                                                {kolVal}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 text-center text-rose-600 font-bold whitespace-nowrap">{tunggakan} Hari</td>
-                                                        <td className="p-4 text-slate-600 whitespace-nowrap font-medium">{cabVal}</td>
-                                                        <td className="p-4 text-slate-600 whitespace-nowrap font-medium">{outLetVal}</td>
-                                                        {type === 'klaim' && (
-                                                            <td className="p-4 font-semibold whitespace-nowrap">
-                                                                <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-extrabold bg-teal-100 text-teal-800 border border-teal-200">
-                                                                    <i className="fas fa-clipboard-check mr-1.5 text-teal-600"></i>{tindakLanjut}
-                                                                </span>
-                                                            </td>
-                                                        )}
+                                                        {displayColumns.map(column => {
+                                                            const value = item[column] === undefined || item[column] === null || item[column] === '' ? '-' : item[column];
+                                                            const cellValue = ['UP', 'OSL'].includes(column) && value !== '-' ? formatRupiah(value) : value;
+                                                            return <td key={column} className={`p-4 whitespace-nowrap ${column === 'NO_KONTRAK' ? 'font-mono font-bold text-slate-900' : column === 'CUSTOMER_NM' ? 'text-slate-800 font-semibold' : column === 'UP' || column === 'OSL' ? 'font-black text-slate-900 tnum' : 'text-slate-600 font-medium'}`}>{cellValue}</td>;
+                                                        })}
                                                     </tr>
                                                 );
                                             })}
                                             {filteredData.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={type === 'klaim' ? 9 : 8} className="p-10 text-center text-slate-400 font-medium">
+                                                    <td colSpan={displayColumns.length} className="p-10 text-center text-slate-400 font-medium">
                                                         Tidak ada data nasabah yang sesuai filter yang dipilih.
                                                     </td>
                                                 </tr>
@@ -2493,176 +2464,165 @@
                 syncUsersToSheet(updated); showToast('User dihapus', 'error');
             };
 
-            const processMasterCSVUpload = (e, type) => {
-                const file = e.target.files[0];
-                if (!file) return;
+            const microColumnSets = {
+                kol1: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
+                lar: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
+                npl: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
+                klaim: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM']
+            };
+            const reportColumns = ['NAMA_CABANG', 'TARGET_OSL', 'REALISASI_OSL', 'PENCAPAIAN_OSL', 'TARGET_NPL', 'REALISASI_NPL', 'PENCAPAIAN_NPL', 'TARGET_LAR', 'REALISASI_LAR', 'PENCAPAIAN_LAR', 'TARGET_RATA2', 'REALISASI_RATA2', 'PENCAPAIAN_RATA2', 'TARGET_NOA', 'REALISASI_NOA', 'PENCAPAIAN_NOA'];
+            const microInputColumns = [...new Set(Object.values(microColumnSets).flat())];
+            const normalizeExcelHeader = (value) => String(value || '').replace(/\u00a0/g, ' ').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const csv = event.target.result.replace(/^\uFEFF/, "");
-                        const lines = csv.split(/\r\n|\n/).map(line => line.trim().replace(/["']/g, "")).filter(line => line.length > 0);
-                        if (lines.length > 0 && ['AO', 'NAMA', 'NAMA AO', 'NAMA_AO', 'ADMIN', 'ADMIN MIKRO', 'ADMIN_MIKRO', 'PRODUK', 'NAMA PRODUK', 'NAMA_PRODUK', 'CABANG', 'NAMA CABANG', 'NAMA_CABANG'].includes(lines[0].toUpperCase())) {
-                            lines.shift();
-                        }
-                        if (lines.length === 0) throw new Error("File CSV kosong atau format tidak valid.");
+            const parseExcelUpload = async (file, type) => {
+                if (!window.XLSX) throw new Error('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.');
+                const workbook = window.XLSX.read(await file.arrayBuffer(), { cellDates: true });
+                const requiredColumns = type === 'MIKRO' ? microInputColumns : reportColumns;
+                const aliases = type === 'MIKRO'
+                    ? { 'CABANG': ['CABANG', 'NAMA CABANG'], 'TINDAK LANJUT KLAIM': ['TINDAK LANJUT KLAIM', 'TINDAK LANJUT'] }
+                    : { 'NAMA_CABANG': ['NAMA_CABANG', 'NAMA CABANG', 'CABANG'] };
+                let bestMatch = null;
 
-                        if (type === 'CABANG') {
-                            const cleanCabang = lines.map(l => l.includes(':') ? l.split(':')[1].trim().toUpperCase() : l.toUpperCase());
-                            const updated = [...new Set([...cabangList, ...cleanCabang])];
-                            setCabangList(updated); localStorage.setItem('cabangList', JSON.stringify(updated));
-                            syncMasterToSheet(aoList, productList, adminList, updated);
-                        } else if (type === 'AO') {
-                            const cleanAo = lines.map(l => l.includes(':') ? l.split(':')[1].trim().toUpperCase() : l.toUpperCase());
-                            const updated = [...new Set([...aoList, ...cleanAo])];
-                            setAoList(updated); localStorage.setItem('aoList', JSON.stringify(updated));
-                            syncMasterToSheet(updated, productList, adminList, cabangList);
-                        } else if (type === 'ADMIN') {
-                            const cleanAdmin = lines.map(l => l.includes(':') ? l.split(':')[1].trim().toUpperCase() : l.toUpperCase());
-                            const updated = [...new Set([...adminList, ...cleanAdmin])];
-                            setAdminList(updated); localStorage.setItem('adminList', JSON.stringify(updated));
-                            syncMasterToSheet(aoList, productList, updated, cabangList);
-                        } else if (type === 'PRODUK') {
-                            const cleanProd = lines.map(l => l.includes(':') ? l.split(':')[1].trim().toUpperCase() : l.toUpperCase());
-                            const updated = [...new Set([...productList, ...cleanProd])];
-                            setProductList(updated); localStorage.setItem('productList', JSON.stringify(updated));
-                            syncMasterToSheet(aoList, updated, adminList, cabangList);
-                        }
-                        showToast(`Berhasil menambahkan ${lines.length} data baru ke daftar ${type}!`);
-                    } catch (error) { showToast(`Gagal Upload CSV ${type}: ${error.message}`, 'error'); }
-                    e.target.value = null;
-                };
-                reader.readAsText(file);
+                for (const sheetName of workbook.SheetNames) {
+                    const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: '', blankrows: false });
+                    const scanLimit = Math.min(rows.length, 40);
+                    for (let rowIndex = 0; rowIndex < scanLimit; rowIndex++) {
+                        const headers = rows[rowIndex] || [];
+                        const headerIndex = {};
+                        headers.forEach((header, index) => {
+                            const clean = normalizeExcelHeader(header);
+                            if (clean && headerIndex[clean] === undefined) headerIndex[clean] = index;
+                        });
+                        const columnIndexes = {};
+                        const missing = [];
+                        requiredColumns.forEach(column => {
+                            const candidates = (aliases[column] || [column]).map(normalizeExcelHeader);
+                            const matched = candidates.find(candidate => headerIndex[candidate] !== undefined);
+                            if (matched === undefined) missing.push(column);
+                            else columnIndexes[column] = headerIndex[matched];
+                        });
+                        const score = requiredColumns.length - missing.length;
+                        if (!bestMatch || score > bestMatch.score) bestMatch = { rows, rowIndex, columnIndexes, missing, score, sheetName };
+                        if (missing.length === 0) break;
+                    }
+                    if (bestMatch && bestMatch.missing.length === 0) break;
+                }
+
+                if (!bestMatch || bestMatch.missing.length > 0) {
+                    const missing = bestMatch?.missing?.length ? bestMatch.missing.join(', ') : 'kolom header yang sesuai';
+                    throw new Error(`Kolom wajib tidak ditemukan: ${missing}.`);
+                }
+
+                const records = bestMatch.rows.slice(bestMatch.rowIndex + 1).map(row => {
+                    const record = {};
+                    requiredColumns.forEach(column => {
+                        const value = row[bestMatch.columnIndexes[column]];
+                        record[column] = value === undefined || value === null ? '' : String(value).trim();
+                    });
+                    return record;
+                }).filter(record => Object.values(record).some(value => value !== '') && (type !== 'MIKRO' || record.NO_KONTRAK));
+
+                if (records.length === 0) throw new Error(`Tidak ada baris data pada sheet ${bestMatch.sheetName}.`);
+                return records;
             };
 
-            const processCSVUpload = (e, type) => {
+            const makeCloudSheetData = (columns, rows) => [columns, ...rows.map(row => columns.map(column => row[column] ?? ''))];
+            const syncExcelDataToCloud = async (datasets) => {
+                const targetUrl = sheetUrl || DEFAULT_SHEET_URL;
+                if (!targetUrl) return false;
+                for (const { type, columns, rows } of datasets) {
+                    await fetch(targetUrl, {
+                        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({ action: `upload_${type.toLowerCase()}`, data: rows === null ? [] : makeCloudSheetData(columns, rows) })
+                    });
+                }
+                return true;
+            };
+
+            const processExcelUpload = async (e, type) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 setIsLoading(true);
-
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    try {
-                        const csv = event.target.result.replace(/^\uFEFF/, "");
-                        const lines = csv.split(/\r\n|\n/).filter(line => line.trim().length > 0);
-                        if (lines.length < 2) throw new Error("Data kosong atau format tidak valid");
-
-                        let delimiter = ',';
-                        if (lines[0].includes(';')) delimiter = ';';
-                        else if (lines[0].includes('\t')) delimiter = '\t';
-
-                        const parseLine = (line) => {
-                            const result = [];
-                            let start = 0; let inQuotes = false;
-                            for (let i = 0; i < line.length; i++) {
-                                if (line[i] === '"') inQuotes = !inQuotes;
-                                else if (line[i] === delimiter && !inQuotes) {
-                                    result.push(line.substring(start, i).replace(/^"|"$/g, '').trim());
-                                    start = i + 1;
-                                }
-                            }
-                            result.push(line.substring(start).replace(/^"|"$/g, '').trim());
-                            return result;
+                try {
+                    const sourceRows = await parseExcelUpload(file, type);
+                    if (type === 'MIKRO') {
+                        const readNumber = value => {
+                            const cleaned = String(value ?? '').replace(/[^0-9-]/g, '');
+                            return cleaned ? Number(cleaned) : NaN;
                         };
+                        const kol1Rows = sourceRows.filter(row => readNumber(row.KOLEKTIBILITAS) === 1 && readNumber(row.HARI_TUNGGAKAN) >= 1 && readNumber(row.HARI_TUNGGAKAN) <= 10).map(row => Object.fromEntries(microColumnSets.kol1.map(column => [column, row[column] ?? ''])));
+                        const larRows = sourceRows.filter(row => readNumber(row.KOLEKTIBILITAS) === 2 && readNumber(row.HARI_TUNGGAKAN) >= 11 && readNumber(row.HARI_TUNGGAKAN) <= 30).map(row => Object.fromEntries(microColumnSets.lar.map(column => [column, row[column] ?? ''])));
+                        const nplRows = sourceRows.filter(row => [3, 4, 5].includes(readNumber(row.KOLEKTIBILITAS))).map(row => Object.fromEntries(microColumnSets.npl.map(column => [column, row[column] ?? ''])));
+                        const klaimRows = sourceRows.filter(row => String(row['TINDAK LANJUT KLAIM'] || '').trim().toLowerCase().replace(/[_\s]+/g, ' ') === 'segera lakukan klaim').map(row => Object.fromEntries(microColumnSets.klaim.map(column => [column, row[column] ?? ''])));
 
-                        const headers = parseLine(lines[0].toUpperCase());
+                        setKol1Data(kol1Rows); localStorage.setItem('kol1Data', JSON.stringify(kol1Rows));
+                        setLarData(larRows); localStorage.setItem('larData', JSON.stringify(larRows));
+                        setNplData(nplRows); localStorage.setItem('nplData', JSON.stringify(nplRows));
+                        setKlaimData(klaimRows); localStorage.setItem('klaimData', JSON.stringify(klaimRows));
 
-                        const reqKOL1 = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
-                        const reqLARNPL = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'UP', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'];
-                        const reqREPORT = ['NAMA_CABANG', 'TARGET_OSL', 'REALISASI_OSL', 'PENCAPAIAN_OSL', 'TARGET_NPL', 'REALISASI_NPL', 'PENCAPAIAN_NPL', 'TARGET_LAR', 'REALISASI_LAR', 'PENCAPAIAN_LAR', 'TARGET_RATA2', 'REALISASI_RATA2', 'PENCAPAIAN_RATA2', 'TARGET_NOA', 'REALISASI_NOA', 'PENCAPAIAN_NOA'];
-                        const reqKLAIM = ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM'];
-
-                        let reqHeaders = type === 'REPORT' ? reqREPORT : (type === 'KOL1' ? reqKOL1 : (type === 'KLAIM' ? reqKLAIM : reqLARNPL));
-
-                        const cleanHeaderMap = {};
-                        headers.forEach((h, idx) => {
-                            const cleanKey = h.replace(/[^A-Z0-9]/g, '');
-                            if (cleanKey) cleanHeaderMap[cleanKey] = idx;
-                        });
-
-                        const dataArray = [];
-                        const sheetData = [reqHeaders];
-
-                        for (let i = 1; i < lines.length; i++) {
-                            const currentline = parseLine(lines[i]);
-                            if (currentline.length < 3) continue;
-                            const obj = {}; const rowData = [];
-                            reqHeaders.forEach((header) => {
-                                let cleanReq = header.replace(/[^A-Z0-9]/g, '');
-                                let headerIndex = cleanHeaderMap[cleanReq] !== undefined ? cleanHeaderMap[cleanReq] : headers.indexOf(header);
-                                if (headerIndex === -1 && cleanReq.includes('TINDAKLANJUTKLAIM')) {
-                                    headerIndex = cleanHeaderMap['TINDAKLANJUT'] !== undefined ? cleanHeaderMap['TINDAKLANJUT'] : cleanHeaderMap['KLAIM'];
-                                }
-                                const val = headerIndex > -1 && currentline[headerIndex] !== undefined ? currentline[headerIndex] : '';
-                                obj[header] = val;
-                                rowData.push(val);
-                            });
-                            dataArray.push(obj);
-                            sheetData.push(rowData);
+                        try {
+                            await syncExcelDataToCloud([
+                                { type: 'KOL1', columns: microColumnSets.kol1, rows: kol1Rows },
+                                { type: 'LAR', columns: microColumnSets.lar, rows: larRows },
+                                { type: 'NPL', columns: microColumnSets.npl, rows: nplRows },
+                                { type: 'KLAIM', columns: microColumnSets.klaim, rows: klaimRows }
+                            ]);
+                            showToast(`Data Mikro diproses: KOL 1 ${kol1Rows.length}, LAR ${larRows.length}, NPL ${nplRows.length}, klaim ${klaimRows.length} nasabah.`);
+                        } catch (cloudError) {
+                            showToast('Data Mikro tersimpan di perangkat, tetapi sinkronisasi Cloud gagal.', 'error');
                         }
-
-                        if (type === 'KOL1') { setKol1Data(dataArray); localStorage.setItem('kol1Data', JSON.stringify(dataArray)); }
-                        else if (type === 'LAR') { setLarData(dataArray); localStorage.setItem('larData', JSON.stringify(dataArray)); }
-                        else if (type === 'NPL') { setNplData(dataArray); localStorage.setItem('nplData', JSON.stringify(dataArray)); }
-                        else if (type === 'KLAIM') { setKlaimData(dataArray); localStorage.setItem('klaimData', JSON.stringify(dataArray)); }
-                        else if (type === 'REPORT') { setReportData(dataArray); localStorage.setItem('reportData', JSON.stringify(dataArray)); }
-
-                        const targetUrl = sheetUrl || DEFAULT_SHEET_URL;
-                        if (targetUrl) {
-                            await fetch(targetUrl, {
-                                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-                                body: JSON.stringify({ action: `upload_${type.toLowerCase()}`, data: sheetData })
-                            });
+                    } else {
+                        const reportRows = sourceRows.filter(row => row.NAMA_CABANG).map(row => Object.fromEntries(reportColumns.map(column => [column, row[column] ?? ''])));
+                        if (reportRows.length === 0) throw new Error('Tidak ada baris report dengan nama cabang.');
+                        setReportData(reportRows); localStorage.setItem('reportData', JSON.stringify(reportRows));
+                        try {
+                            await syncExcelDataToCloud([{ type: 'REPORT', columns: reportColumns, rows: reportRows }]);
+                            showToast(`Report Excel berhasil diproses: ${reportRows.length} cabang.`);
+                        } catch (cloudError) {
+                            showToast('Report tersimpan di perangkat, tetapi sinkronisasi Cloud gagal.', 'error');
                         }
-                        showToast(`Data ${type} sukses disimpan dan disinkronkan ke Cloud!`);
-                    } catch (err) { showToast(`Gagal: ${err.message}`, 'error'); }
-                    e.target.value = null;
+                    }
+                } catch (error) {
+                    showToast(`Gagal membaca Excel: ${error.message}`, 'error');
+                } finally {
+                    e.target.value = '';
                     setIsLoading(false);
-                };
-                reader.readAsText(file);
+                }
             };
 
             const resetData = (type) => {
+                const isMicro = type === 'MIKRO';
+                const label = isMicro ? 'Data Mikro' : 'Report';
+                const datasets = isMicro
+                    ? [
+                        { type: 'KOL1', columns: microColumnSets.kol1, rows: null },
+                        { type: 'LAR', columns: microColumnSets.lar, rows: null },
+                        { type: 'NPL', columns: microColumnSets.npl, rows: null },
+                        { type: 'KLAIM', columns: microColumnSets.klaim, rows: null }
+                    ]
+                    : [{ type: 'REPORT', columns: reportColumns, rows: null }];
                 setConfirmModal({
                     open: true,
-                    title: `Kosongkan Data ${type}`,
-                    message: `Hapus seluruh data ${type} saat ini dari aplikasi dan database Google Sheet? Tindakan ini akan mengosongkan tabel.`,
+                    title: `Kosongkan ${label}`,
+                    message: `Hapus seluruh data ${label} dari aplikasi dan database Google Sheet?`,
                     onConfirm: async () => {
                         setIsLoading(true);
-                        if (type === 'KOL1') { setKol1Data([]); localStorage.removeItem('kol1Data'); }
-                        else if (type === 'LAR') { setLarData([]); localStorage.removeItem('larData'); }
-                        else if (type === 'NPL') { setNplData([]); localStorage.removeItem('nplData'); }
-                        else if (type === 'KLAIM') { setKlaimData([]); localStorage.removeItem('klaimData'); }
-                        else if (type === 'REPORT') { setReportData([]); localStorage.removeItem('reportData'); }
-
-                        const targetUrl = sheetUrl || DEFAULT_SHEET_URL;
-                        if (targetUrl) {
-                            try {
-                                await fetch(targetUrl, {
-                                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-                                    body: JSON.stringify({ action: `upload_${type.toLowerCase()}`, data: [] })
-                                });
-                            } catch (e) { }
+                        if (isMicro) {
+                            setKol1Data([]); setLarData([]); setNplData([]); setKlaimData([]);
+                            ['kol1Data', 'larData', 'nplData', 'klaimData'].forEach(key => localStorage.removeItem(key));
+                        } else {
+                            setReportData([]); localStorage.removeItem('reportData');
                         }
-                        showToast(`Data ${type} berhasil dikosongkan`);
+                        try {
+                            await syncExcelDataToCloud(datasets);
+                            showToast(`${label} berhasil dikosongkan.`);
+                        } catch (error) {
+                            showToast(`${label} dihapus dari perangkat, tetapi sinkronisasi Cloud gagal.`, 'error');
+                        }
                         setIsLoading(false);
                         setConfirmModal({ open: false, title: '', message: '', onConfirm: null });
                     }
                 });
-            };
-
-            const downloadTemplateCSV = (type) => {
-                let headers = '';
-                if (type === 'REPORT') headers = 'NAMA_CABANG,TARGET_OSL,REALISASI_OSL,PENCAPAIAN_OSL,TARGET_NPL,REALISASI_NPL,PENCAPAIAN_NPL,TARGET_LAR,REALISASI_LAR,PENCAPAIAN_LAR,TARGET_RATA2,REALISASI_RATA2,PENCAPAIAN_RATA2,TARGET_NOA,REALISASI_NOA,PENCAPAIAN_NOA\nMEDAN PETISAH,17.698.150.629,17.792.220.707,100.53%,1.66,4.33,38.33%,11.57,18.72,61.81%,16.843.528.392,16.973.417.363,100.77%,175,56,32.01%';
-                else if (type === 'KOL1') headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,TGL_JATUH_TEMPO,KOLEKTIBILITAS,HARI_TUNGGAKAN,OSL,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,01-10-2026,1,5,5000000,UPC A,CH-1,CABANG A';
-                else if (type === 'KLAIM') headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,TGL_JATUH_TEMPO,KOLEKTIBILITAS,HARI_TUNGGAKAN,OSL,OUTLET,OUTLET_CHANNELING,CABANG,TINDAK LANJUT KLAIM\n01-09-2026,123456,K-999,Nasabah Klaim,KREASI BARU,01-01-2026,12,01-10-2026,4,95,15000000,UPC PASAR MERAH,CH-1,MEDAN UTAMA,PROSES PENGAJUAN ASURANSI';
-                else headers = 'TGL_DATA,CIF,NO_KONTRAK,CUSTOMER_NM,SUB PRODUK,TGL_KREDIT,TENOR,KOLEKTIBILITAS,HARI_TUNGGAKAN,UP,OUTLET,OUTLET_CHANNELING,CABANG\n01-09-2026,123456,K-001,Budi Santoso,KREASI BARU,01-01-2026,12,2,45,5000000,UPC A,CH-1,CABANG A';
-
-                const blob = new Blob([headers], { type: 'text/csv' });
-                const a = document.createElement('a');
-                a.href = window.URL.createObjectURL(blob);
-                a.download = `Template_Upload_${type}.csv`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
             };
 
             return (
@@ -2699,92 +2659,28 @@
                     <div>
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-black text-slate-900 font-heading">
-                                Unggah Data Nasabah & Laporan (CSV)
+                                Unggah Data Mikro & Report (Excel)
                             </h3>
-                            <span className="text-xs text-slate-400 font-medium">Format delimiter koma, titik-koma, atau tab didukung otomatis</span>
+                            <span className="text-xs text-slate-400 font-medium">Format Excel .xlsx dan .xls</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 p-6 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200 p-6 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
                                 <div>
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h4 className="font-extrabold text-amber-950 text-base font-heading">Upload KOL 1</h4>
-                                            <p className="text-xs text-amber-700 font-medium">Tunggakan 1-10 Hari</p>
+                                            <h4 className="font-extrabold text-emerald-950 text-base font-heading">Upload Data Mikro</h4>
+                                            <p className="text-xs text-emerald-700 font-medium">Otomatis filter KOL 1 (1–10 hari), LAR (11–30 hari), NPL (KOL 3–5, seluruh tunggakan), dan klaim.</p>
                                         </div>
-                                        <div className="flex space-x-1.5">
-                                            <button onClick={() => downloadTemplateCSV('KOL1')} className="px-2.5 py-1 bg-white text-amber-900 border border-amber-300 rounded-xl text-xs hover:bg-amber-50 font-bold shadow-xs">Template</button>
-                                            <button onClick={() => resetData('KOL1')} className="px-2.5 py-1 bg-amber-600 text-white rounded-xl text-xs hover:bg-amber-700 font-bold shadow-xs">Reset</button>
+                                        <div>
+                                            <button onClick={() => resetData('MIKRO')} className="px-2.5 py-1 bg-emerald-700 text-white rounded-xl text-xs hover:bg-emerald-800 font-bold shadow-xs">Reset Data Mikro</button>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'KOL1')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-2xl text-xs font-bold flex items-center justify-center pointer-events-none shadow-md">
-                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih CSV KOL 1
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200 p-6 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-                                <div>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h4 className="font-extrabold text-orange-950 text-base font-heading">Upload LAR</h4>
-                                            <p className="text-xs text-orange-700 font-medium">Tunggakan 11-30 Hari</p>
-                                        </div>
-                                        <div className="flex space-x-1.5">
-                                            <button onClick={() => downloadTemplateCSV('LAR')} className="px-2.5 py-1 bg-white text-orange-900 border border-orange-300 rounded-xl text-xs hover:bg-orange-50 font-bold shadow-xs">Template</button>
-                                            <button onClick={() => resetData('LAR')} className="px-2.5 py-1 bg-orange-600 text-white rounded-xl text-xs hover:bg-orange-700 font-bold shadow-xs">Reset</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'LAR')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-2xl text-xs font-bold flex items-center justify-center pointer-events-none shadow-md">
-                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih CSV LAR
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 border border-rose-200 p-6 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-                                <div>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h4 className="font-extrabold text-rose-950 text-base font-heading">Upload NPL</h4>
-                                            <p className="text-xs text-rose-700 font-medium">KOL 3 - KOL 5</p>
-                                        </div>
-                                        <div className="flex space-x-1.5">
-                                            <button onClick={() => downloadTemplateCSV('NPL')} className="px-2.5 py-1 bg-white text-rose-900 border border-rose-300 rounded-xl text-xs hover:bg-rose-50 font-bold shadow-xs">Template</button>
-                                            <button onClick={() => resetData('NPL')} className="px-2.5 py-1 bg-rose-600 text-white rounded-xl text-xs hover:bg-rose-700 font-bold shadow-xs">Reset</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'NPL')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-2xl text-xs font-bold flex items-center justify-center pointer-events-none shadow-md">
-                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih CSV NPL
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200 p-6 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-                                <div>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h4 className="font-extrabold text-teal-950 text-base font-heading">Upload Klaim</h4>
-                                            <p className="text-xs text-teal-700 font-medium">Tindak Lanjut Klaim</p>
-                                        </div>
-                                        <div className="flex space-x-1.5">
-                                            <button onClick={() => downloadTemplateCSV('KLAIM')} className="px-2.5 py-1 bg-white text-teal-900 border border-teal-300 rounded-xl text-xs hover:bg-teal-50 font-bold shadow-xs">Template</button>
-                                            <button onClick={() => resetData('KLAIM')} className="px-2.5 py-1 bg-teal-600 text-white rounded-xl text-xs hover:bg-teal-700 font-bold shadow-xs">Reset</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'KLAIM')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <button className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-2xl text-xs font-bold flex items-center justify-center pointer-events-none shadow-md">
-                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih CSV Klaim
+                                    <input type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(e) => processExcelUpload(e, 'MIKRO')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl text-xs font-bold flex items-center justify-center pointer-events-none shadow-md">
+                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih Excel Data Mikro
                                     </button>
                                 </div>
                             </div>
@@ -2794,18 +2690,17 @@
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
                                             <h4 className="font-extrabold text-blue-950 text-base font-heading">Upload Report</h4>
-                                            <p className="text-xs text-blue-700 font-medium">Realisasi Target Cabang</p>
+                                            <p className="text-xs text-blue-700 font-medium">Report realisasi target cabang.</p>
                                         </div>
-                                        <div className="flex space-x-1.5">
-                                            <button onClick={() => downloadTemplateCSV('REPORT')} className="px-2.5 py-1 bg-white text-blue-900 border border-blue-300 rounded-xl text-xs hover:bg-blue-50 font-bold shadow-xs">Template</button>
-                                            <button onClick={() => resetData('REPORT')} className="px-2.5 py-1 bg-blue-600 text-white rounded-xl text-xs hover:bg-blue-700 font-bold shadow-xs">Reset</button>
+                                        <div>
+                                            <button onClick={() => resetData('REPORT')} className="px-2.5 py-1 bg-blue-700 text-white rounded-xl text-xs hover:bg-blue-800 font-bold shadow-xs">Reset Report</button>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="relative mt-4">
-                                    <input type="file" accept=".csv" onChange={(e) => processCSVUpload(e, 'REPORT')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <input type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(e) => processExcelUpload(e, 'REPORT')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                     <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl text-xs font-bold flex items-center justify-center pointer-events-none shadow-md">
-                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih CSV Report
+                                        <i className="fas fa-cloud-arrow-up mr-2 text-sm"></i> Pilih Excel Report
                                     </button>
                                 </div>
                             </div>
@@ -2824,10 +2719,6 @@
                                         <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider font-heading">
                                             <i className="fas fa-building mr-1.5 text-emerald-600"></i>Cabang ({cabangList.length})
                                         </h4>
-                                        <div className="relative">
-                                            <input type="file" accept=".csv" onChange={(e) => processMasterCSVUpload(e, 'CABANG')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Upload CSV 1 Kolom" />
-                                            <button className="text-[11px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-xl border border-emerald-200 hover:bg-emerald-100 font-bold pointer-events-none">CSV <i className="fas fa-upload"></i></button>
-                                        </div>
                                     </div>
                                     <div className="flex space-x-1.5 mb-3">
                                         <input type="text" value={newCabang} onChange={(e) => setNewCabang(e.target.value)} placeholder="Cabang Baru" className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white" />
@@ -2850,10 +2741,6 @@
                                         <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider font-heading">
                                             <i className="fas fa-user-tie mr-1.5 text-orange-500"></i>Account Officer ({aoList.length})
                                         </h4>
-                                        <div className="relative">
-                                            <input type="file" accept=".csv" onChange={(e) => processMasterCSVUpload(e, 'AO')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Upload CSV 1 Kolom" />
-                                            <button className="text-[11px] bg-orange-50 text-orange-700 px-2.5 py-1 rounded-xl border border-orange-200 hover:bg-orange-100 font-bold pointer-events-none">CSV <i className="fas fa-upload"></i></button>
-                                        </div>
                                     </div>
                                     <div className="flex space-x-1.5 mb-3">
                                         <input type="text" value={newAo} onChange={(e) => setNewAo(e.target.value)} placeholder="AO Baru" className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white" />
@@ -2876,10 +2763,6 @@
                                         <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider font-heading">
                                             <i className="fas fa-user-gear mr-1.5 text-blue-600"></i>Admin Mikro ({adminList.length})
                                         </h4>
-                                        <div className="relative">
-                                            <input type="file" accept=".csv" onChange={(e) => processMasterCSVUpload(e, 'ADMIN')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Upload CSV 1 Kolom" />
-                                            <button className="text-[11px] bg-blue-50 text-blue-700 px-2.5 py-1 rounded-xl border border-blue-200 hover:bg-blue-100 font-bold pointer-events-none">CSV <i className="fas fa-upload"></i></button>
-                                        </div>
                                     </div>
                                     <div className="flex space-x-1.5 mb-3">
                                         <input type="text" value={newAdmin} onChange={(e) => setNewAdmin(e.target.value)} placeholder="Admin Baru" className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white" />
@@ -2902,10 +2785,6 @@
                                         <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider font-heading">
                                             <i className="fas fa-box-archive mr-1.5 text-purple-600"></i>Produk ({productList.length})
                                         </h4>
-                                        <div className="relative">
-                                            <input type="file" accept=".csv" onChange={(e) => processMasterCSVUpload(e, 'PRODUK')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Upload CSV 1 Kolom" />
-                                            <button className="text-[11px] bg-purple-50 text-purple-700 px-2.5 py-1 rounded-xl border border-purple-200 hover:bg-purple-100 font-bold pointer-events-none">CSV <i className="fas fa-upload"></i></button>
-                                        </div>
                                     </div>
                                     <div className="flex space-x-1.5 mb-3">
                                         <input type="text" value={newProduct} onChange={(e) => setNewProduct(e.target.value)} placeholder="Produk Baru" className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white" />
@@ -4231,7 +4110,7 @@
                                     </div>
 
                                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-3 font-heading">
-                                        Monitoring Kredit (CSV)
+                                        Monitoring Kredit (Excel)
                                     </p>
                                     <button
                                         onClick={() => { setActiveTab('repKol1'); setIsSidebarOpen(false) }}
@@ -4249,7 +4128,7 @@
                                         onClick={() => { setActiveTab('repNpl'); setIsSidebarOpen(false) }}
                                         className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repNpl' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                     >
-                                        <i className="fas fa-circle-exclamation w-6 text-rose-400 text-sm"></i> NPL (KOL 3 - 5)
+                                        <i className="fas fa-circle-exclamation w-6 text-rose-400 text-sm"></i> NPL (KOL 3-5)
                                     </button>
                                     <button
                                         onClick={() => { setActiveTab('repKlaim'); setIsSidebarOpen(false) }}
