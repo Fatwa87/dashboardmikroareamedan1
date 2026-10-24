@@ -1,0 +1,27 @@
+{
+  "name": "dashboard-mikro-area-medan1",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Dashboard Mikro Area Medan 1 dengan Supabase Auth dan PostgreSQL",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "setup:admin": "node --env-file=.env scripts/setup-admin.mjs",
+    "migrate:legacy": "node --env-file=.env scripts/migrate-legacy.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-react": "^7.27.0",
+    "@electric-sql/pglite": "0.5.10",
+    "jspdf": "2.5.1",
+    "jspdf-autotable": "3.5.31"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

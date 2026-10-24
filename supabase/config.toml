@@ -1,0 +1,10 @@
+project_id = "dashboard-mikro-area-medan1"
+
+[auth]
+enable_signup = false
+minimum_password_length = 10
+
+[functions.manage-users]
+# JWT is explicitly validated with auth.getUser() in the function.
+# This also supports projects with the newer signing keys.
+verify_jwt = false

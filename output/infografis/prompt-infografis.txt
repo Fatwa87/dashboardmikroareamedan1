@@ -1,0 +1,69 @@
+Use case: infographic-diagram.
+Create one polished, high-resolution Indonesian instructional infographic poster, portrait 9:16, ideally 2160 x 3840 pixels, suitable for sharing on WhatsApp and reading on a phone. This is the finished infographic, not a mockup or photograph of a poster.
+Style: clean corporate dashboard guide, white and very pale mint background, dark navy typography, emerald green primary accents, amber and blue category accents. Generous spacing, consistent large highly legible sans-serif type, rounded cards, crisp simple pictograms of menu, branch/location, list, camera, map pin, clipboard, person, cloud upload, and report. No invented company logo, no photos of real customers, no decorative filler. Keep every word spelled correctly. Draw small generic interface button pills only, not a full fake screenshot.
+Layout: top title and subtitle; three unmistakable responsibility cards side by side; a dominant numbered 7-step reading path, with enough room for the mandatory fields step; a compact admin report section; a short troubleshooting footer. The hierarchy should be simple at a glance yet complete enough for a first-time user. All text below must be present, with no additional claims. Use tasteful bold emphasis for button names and required fields.
+
+EXACT INDONESIAN COPY:
+
+PANDUAN TINDAK LANJUT KREDIT
+Dashboard Mikro Area Medan 1
+Pilih nasabah • Foto kunjungan • Lengkapi data • Simpan
+
+PEMBAGIAN PETUGAS
+KOL 1
+Tunggakan 1–10 hari
+Petugas: Admin Mikro
+
+LAR
+Tunggakan 11–30 hari
+Petugas: AO
+(Account Officer)
+
+NPL
+KOL 3–5
+Petugas: Propan
+
+LANGKAH PENGGUNAAN
+
+01  MASUK & PILIH MENU
+Login ke dashboard. Buka menu KOL 1, LAR 11–30 Hari, atau NPL (KOL 3–5) sesuai penugasan.
+
+02  PILIH CABANG
+Pilih satu cabang, lalu klik Tindak Lanjut di sebelah Cetak PDF.
+Daftar nasabah mengikuti cabang yang dipilih.
+
+03  PILIH NASABAH
+Cari berdasarkan CIF, No Kredit, atau Nama Nasabah. Cocokkan identitas, lalu klik Lampirkan Foto pada baris nasabah.
+
+04  AMBIL FOTO DI LOKASI
+Aktifkan GPS dan izinkan akses kamera serta lokasi pada browser. Tunggu kamera siap, lalu klik Ambil Foto.
+Foto memuat waktu WIB, koordinat GPS, dan peta jika berhasil dimuat.
+
+05  PERIKSA HASIL FOTO
+Pastikan gambar jelas dan identitas nasabah sesuai. Pilih Foto Ulang jika perlu.
+Jika peta belum tampil, klik Ulangi Peta.
+
+06  LENGKAPI DUA KOLOM WAJIB
+Catatan Tindak Lanjut *
+Isi hasil kunjungan dan rencana tindak lanjut.
+Nama Petugas *
+Isi nama lengkap petugas yang melakukan kunjungan.
+Keduanya wajib diisi. Tombol simpan belum aktif jika salah satu kosong atau hanya berisi spasi.
+
+07  SIMPAN & PASTIKAN BERHASIL
+Klik Simpan Tindak Lanjut. Tunggu pesan berhasil sebelum menutup halaman.
+Bukti masuk ke Rekap Tindak Lanjut admin.
+
+REKAP KHUSUS ADMIN
+Buka Rekap Tindak Lanjut → pilih filter cabang, kategori, dan tanggal.
+Periksa foto, lokasi, catatan, serta nama petugas.
+Ekspor PDF memuat foto. CSV juga tersedia.
+Tombol Hapus hanya untuk admin; periksa bukti sebelum menghapus.
+
+JIKA ADA KENDALA
+Gunakan koneksi internet stabil. Jika GPS gagal, klik Coba GPS Lagi.
+Jika simpan gagal, periksa pesan kesalahan dan coba lagi sampai berhasil.
+
+dashboardmikroareamedan1.my.id
+
+Constraints: All seven steps in order, all three assignments exact, specifically Propan for NPL (never replace with AO). Do not imply the job labels are app account roles or that the photo alone saves automatically. Do not claim map always loads. Make required notes and officer name visually prominent using amber notice. Keep the design uncluttered and readable.

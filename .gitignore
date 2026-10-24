@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.migration-backup/
+migration-backups/
+test-results/
+output/pdf/
+tmp/pdfs/
+supabase/.temp/
+supabase/.branches/
+*.log

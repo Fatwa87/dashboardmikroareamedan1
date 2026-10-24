@@ -1,0 +1,6 @@
+Metode: built-in image_gen, pembuatan baru lalu koreksi satu kata.
+Poster final: Panduan_Tindak_Lanjut_Kredit_Final.png
+Prompt awal: prompt-infografis.txt
+
+Prompt koreksi terakhir:
+Edit this finished Indonesian infographic with one precise text correction only. In the bottom-left blue REKAP KHUSUS ADMIN box, the second bullet currently has a typo in the word lokasi. Replace that whole bullet with exactly: "Periksa foto, lokasi, catatan, serta nama petugas." The word lokasi must be spelled l-o-k-a-s-i, not lokaai. Preserve ALL other text, all seven numbered steps, exact responsibility assignments KOL 1 Admin Mikro, LAR AO (Account Officer), NPL Propan, all fonts, icons, colors, layout, dimensions and the website footer. Keep the corrected bullet clear and crisp, matching the surrounding typography. Do not introduce any other content or change. This is the final clean sharing poster.
