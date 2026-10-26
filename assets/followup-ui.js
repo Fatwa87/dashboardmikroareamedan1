@@ -14,13 +14,15 @@
       LABELS: {
         kol1: 'KOL 1 (1–10 Hari)',
         lar: 'LAR (11–30 Hari)',
-        npl: 'NPL (KOL 3–5)'
+        npl: 'NPL (KOL 3–5)',
+        arrumExp: 'Arrum Exspres Loan'
       }
     };
   }
   function getLabel(dataset) {
     const key = String(dataset || '').toLowerCase();
     const core = getCore();
+    if (key === 'arrumexp' || key === 'arrum' || key.includes('arrum')) return 'Arrum Exspres Loan';
     return core && core.LABELS && (core.LABELS[key] || core.LABELS[dataset]) || key.toUpperCase();
   }
   function generateUUID() {
@@ -521,7 +523,13 @@
       const b = String(branch || '').toLowerCase();
       const ds = String(dataset || '').toLowerCase();
       const cn = String(row?.creditNo || '');
-      return history.filter(item => item && String(item.branch || '').toLowerCase() === b && String(item.dataset || '').toLowerCase() === ds && String(item.credit_no || '') === cn).length;
+      return history.filter(item => {
+        if (!item) return false;
+        if (String(item.branch || '').toLowerCase() !== b) return false;
+        if (String(item.credit_no || '') !== cn) return false;
+        if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+        return String(item.dataset || '').toLowerCase() === ds;
+      }).length;
     };
     const datasetLabel = getLabel(dataset);
     if (selected) return /*#__PURE__*/React.createElement(CameraCapture, {
@@ -722,7 +730,8 @@
   }
   function FollowupAdminView({
     currentUser,
-    showToast
+    showToast,
+    arrumExpData
   }) {
     const [rows, setRows] = useState([]),
       [loading, setLoading] = useState(true),
@@ -744,6 +753,19 @@
     const pdfController = useRef(null);
     const generation = useRef(0),
       mounted = useRef(true);
+    const arrumCreditNos = useMemo(() => {
+      const list = arrumExpData || typeof window !== 'undefined' && window.arrumCreditNos || [];
+      if (list instanceof Set) return list;
+      return new Set((Array.isArray(list) ? list : []).map(r => String(r?.NO_KONTRAK || r?.NoKredit || r?.credit_no || '').trim()).filter(Boolean));
+    }, [arrumExpData]);
+    const isRowArrumExp = r => {
+      if (!r) return false;
+      const ds = String(r.dataset || '').toLowerCase();
+      if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+      if (arrumCreditNos.has(String(r.credit_no || '').trim())) return true;
+      if (/ARRUM\s*EXPR?ES\s*LOAN/i.test(r.notes || '') || /ARRUM\s*EXPR?ES\s*LOAN/i.test(r.product || '')) return true;
+      return false;
+    };
     const load = async () => {
       const current = ++generation.current;
       setLoading(true);
@@ -770,12 +792,19 @@
     }, []);
     const core = getCore();
     const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
-    const visible = useMemo(() => core && typeof core.filterRecap === 'function' ? core.filterRecap(safeRows, filters) : safeRows, [safeRows, filters]);
+    const visible = useMemo(() => {
+      const activeFilters = {
+        ...filters,
+        arrumCreditNos
+      };
+      return core && typeof core.filterRecap === 'function' ? core.filterRecap(safeRows, activeFilters) : safeRows;
+    }, [safeRows, filters, arrumCreditNos]);
     const branches = [...new Set(safeRows.map(row => row.branch).filter(Boolean))].sort();
     const officersList = useMemo(() => [...new Set(safeRows.map(r => core && typeof core.officerName === 'function' ? core.officerName(r) : r?.officer_name || r?.actor_name || '').filter(Boolean))].sort(), [safeRows]);
     const countKol1 = useMemo(() => safeRows.filter(r => r && r.dataset === 'kol1').length, [safeRows]);
     const countLar = useMemo(() => safeRows.filter(r => r && r.dataset === 'lar').length, [safeRows]);
     const countNpl = useMemo(() => safeRows.filter(r => r && r.dataset === 'npl').length, [safeRows]);
+    const countArrumExp = useMemo(() => safeRows.filter(isRowArrumExp).length, [safeRows, arrumCreditNos]);
     const change = (name, value) => setFilters(previous => ({
       ...previous,
       [name]: value
@@ -825,7 +854,8 @@
         await window.FollowupPdf.exportReport({
           rows: [...visible],
           filters: {
-            ...filters
+            ...filters,
+            arrumCreditNos
           },
           getPhotoUrl: DB && typeof DB.followupPhotoUrl === 'function' ? DB.followupPhotoUrl : async () => '',
           signal: controller.signal,
@@ -884,7 +914,7 @@
       className: "text-xl font-black text-slate-900"
     }, "Rekap Tindak Lanjut"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-500 mt-1"
-    }, "Bukti kunjungan KOL 1, LAR, dan NPL dari seluruh petugas.")), /*#__PURE__*/React.createElement("div", {
+    }, "Bukti kunjungan KOL 1, LAR, NPL, dan Arrum Exspres Loan dari seluruh petugas.")), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-2"
     }, /*#__PURE__*/React.createElement("button", {
       type: "button",
@@ -949,7 +979,13 @@
       className: `px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${filters.dataset === 'npl' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'}`
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-circle-exclamation mr-1.5 text-[10px]"
-    }), "NPL (", countNpl, ")")), filters.dataset && /*#__PURE__*/React.createElement("button", {
+    }), "NPL (", countNpl, ")"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => change('dataset', 'arrumExp'),
+      className: `px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${filters.dataset === 'arrumExp' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border border-indigo-200'}`
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-bolt-lightning mr-1.5 text-[10px]"
+    }), "Arrum Exspres Loan (", countArrumExp, ")")), filters.dataset && /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: () => change('dataset', ''),
       className: "text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center"
@@ -977,13 +1013,15 @@
       className: `${field} mt-1`
     }, /*#__PURE__*/React.createElement("option", {
       value: ""
-    }, "Semua Kategori (KOL 1, LAR, NPL)"), /*#__PURE__*/React.createElement("option", {
+    }, "Semua Kategori (KOL 1, LAR, NPL, Arrum Exspres)"), /*#__PURE__*/React.createElement("option", {
       value: "kol1"
     }, "KOL 1 (1\u201310 Hari)"), /*#__PURE__*/React.createElement("option", {
       value: "lar"
     }, "LAR (11\u201330 Hari)"), /*#__PURE__*/React.createElement("option", {
       value: "npl"
-    }, "NPL (KOL 3\u20135)"))), /*#__PURE__*/React.createElement("label", {
+    }, "NPL (KOL 3\u20135)"), /*#__PURE__*/React.createElement("option", {
+      value: "arrumExp"
+    }, "Arrum Exspres Loan"))), /*#__PURE__*/React.createElement("label", {
       className: "text-xs font-bold text-slate-500"
     }, "Petugas", /*#__PURE__*/React.createElement("select", {
       "aria-label": "Petugas rekap tindak lanjut",
@@ -1043,7 +1081,7 @@
       className: "p-4"
     }, /*#__PURE__*/React.createElement("span", {
       className: "font-bold"
-    }, getLabel(row.dataset)), /*#__PURE__*/React.createElement("br", null), row.branch), /*#__PURE__*/React.createElement("td", {
+    }, isRowArrumExp(row) ? 'Arrum Exspres Loan' : getLabel(row.dataset)), /*#__PURE__*/React.createElement("br", null), row.branch), /*#__PURE__*/React.createElement("td", {
       className: "p-4 font-mono whitespace-nowrap"
     }, row.cif, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("strong", null, row.credit_no)), /*#__PURE__*/React.createElement("td", {
       className: "p-4 font-bold"

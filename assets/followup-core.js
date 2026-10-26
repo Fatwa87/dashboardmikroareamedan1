@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    const LABELS = Object.freeze({ kol1: 'KOL 1 (1–10 Hari)', lar: 'LAR (11–30 Hari)', npl: 'NPL (KOL 3–5)' });
+    const LABELS = Object.freeze({ kol1: 'KOL 1 (1–10 Hari)', lar: 'LAR (11–30 Hari)', npl: 'NPL (KOL 3–5)', arrumExp: 'Arrum Exspres Loan', arrumexp: 'Arrum Exspres Loan', arrum: 'Arrum Exspres Loan' });
     const BUKET = 'credit-followups';
     function cleanFollowupText(value) { return String(value??'').replace(/^[\s\u200b]+|[\s\u200b]+$/g,''); }
     function validateFollowupDetails(notes,officerName) {
@@ -41,7 +41,9 @@
             cif,
             creditNo: creditNo || '—',
             name: name || 'Nasabah',
-            branch
+            branch,
+            _dataset: row._dataset || row.dataset || null,
+            subProduk: row['SUB PRODUK'] || row['SUB_PRODUK'] || row['Produk'] || row.subProduk || ''
         };
     }
     function localDay(value) {
@@ -66,8 +68,12 @@
     }
     function recapCsv(rows) {
         const header = ['Waktu Foto (WIB)', 'Kategori', 'Cabang', 'CIF', 'No Kredit', 'Nama Nasabah', 'Nama Petugas', 'Akun Pengunggah', 'Latitude', 'Longitude', 'Akurasi (m)', 'Peta di Foto', 'Catatan'];
-        return '\uFEFF' + [header, ...rows.map(row => [formatTime(row.captured_at), LABELS[row.dataset], row.branch, row.cif, row.credit_no, row.customer_name, officerName(row), row.actor_name,
-            row.latitude, row.longitude, row.accuracy_m, row.map_included ? 'Ya' : 'Tidak', row.notes])].map(row => row.map(csvCell).join(',')).join('\r\n');
+        return '\uFEFF' + [header, ...rows.map(row => {
+            const dsKey = String(row.dataset || '').toLowerCase();
+            const catLabel = LABELS[row.dataset] || LABELS[dsKey] || (dsKey === 'arrumexp' || dsKey === 'arrum' ? 'Arrum Exspres Loan' : row.dataset);
+            return [formatTime(row.captured_at), catLabel, row.branch, row.cif, row.credit_no, row.customer_name, officerName(row), row.actor_name,
+            row.latitude, row.longitude, row.accuracy_m, row.map_included ? 'Ya' : 'Tidak', row.notes];
+        })].map(row => row.map(csvCell).join(',')).join('\r\n');
     }
     const DEFAULT_OFFICERS = Object.freeze({
         kol1: [
@@ -105,6 +111,26 @@
             "M MAULANA NASUTION",
             "IWAN HENDRA SIMANULLANG",
             "HENDIKO SITUNGKIR"
+        ],
+        arrumExp: [
+            "M RIFAL KAUTSAR",
+            "NUR SALIM",
+            "HENDRA PRATAMA S",
+            "PUTRI RAMADHANA",
+            "ARY DAMAITA TARIGAN",
+            "ANDRE WILIANSYAH",
+            "RENOL SINAGA",
+            "DOLLIS PANJAITAN",
+            "HERU KURNIAWAN",
+            "M FAISAL NUR",
+            "DIAN PRATAMA",
+            "IMAM MUNIRO SINURAT",
+            "ANDI SAMUEL SINAGA",
+            "NENCY NATALINA PURBA",
+            "ANGGA PRATAMA",
+            "ASAURI",
+            "M ZUBIR",
+            "AIDIL SYAHPUTRA"
         ]
     });
     const OFFICERS_STORAGE_KEY = 'dashboard_credit_officers';
@@ -122,22 +148,34 @@
                         const nplList = (isLegacyNpl || !Array.isArray(parsed.npl) || !parsed.npl.length)
                             ? [...DEFAULT_OFFICERS.npl]
                             : [...new Set(parsed.npl.map(normalizeOfficerName).filter(Boolean))];
+                        const arrumList = (Array.isArray(parsed.arrumExp) && parsed.arrumExp.length)
+                            ? [...new Set(parsed.arrumExp.map(normalizeOfficerName).filter(Boolean))]
+                            : (Array.isArray(parsed.arrum) && parsed.arrum.length
+                                ? [...new Set(parsed.arrum.map(normalizeOfficerName).filter(Boolean))]
+                                : [...DEFAULT_OFFICERS.arrumExp]);
                         return {
                             kol1: Array.isArray(parsed.kol1) && parsed.kol1.length ? [...new Set(parsed.kol1.map(normalizeOfficerName).filter(Boolean))] : [...DEFAULT_OFFICERS.kol1],
                             lar: Array.isArray(parsed.lar) && parsed.lar.length ? [...new Set(parsed.lar.map(normalizeOfficerName).filter(Boolean))] : [...DEFAULT_OFFICERS.lar],
-                            npl: nplList
+                            npl: nplList,
+                            arrumExp: arrumList
                         };
                     }
                 }
             }
         } catch (_) {}
-        return { kol1: [...DEFAULT_OFFICERS.kol1], lar: [...DEFAULT_OFFICERS.lar], npl: [...DEFAULT_OFFICERS.npl] };
+        return {
+            kol1: [...DEFAULT_OFFICERS.kol1],
+            lar: [...DEFAULT_OFFICERS.lar],
+            npl: [...DEFAULT_OFFICERS.npl],
+            arrumExp: [...DEFAULT_OFFICERS.arrumExp]
+        };
     }
     function saveOfficers(officers) {
         const cleaned = {
             kol1: [...new Set((officers?.kol1 || []).map(normalizeOfficerName).filter(Boolean))],
             lar: [...new Set((officers?.lar || []).map(normalizeOfficerName).filter(Boolean))],
-            npl: [...new Set((officers?.npl || []).map(normalizeOfficerName).filter(Boolean))]
+            npl: [...new Set((officers?.npl || []).map(normalizeOfficerName).filter(Boolean))],
+            arrumExp: [...new Set((officers?.arrumExp || officers?.arrum || []).map(normalizeOfficerName).filter(Boolean))]
         };
         try {
             if (typeof window !== 'undefined' && window.localStorage) {
@@ -153,18 +191,24 @@
         if (key === 'kol1' || key.includes('kol 1') || key.includes('kol1')) return current.kol1 || [];
         if (key === 'lar') return current.lar || [];
         if (key === 'npl' || key.includes('npl') || key.includes('kol 3') || key.includes('kol3')) return current.npl || [];
+        if (key === 'arrumexp' || key === 'arrum' || key.includes('arrum') || key.includes('expres') || key.includes('express')) {
+            if (current.arrumExp && current.arrumExp.length) return current.arrumExp;
+            if (current.arrum && current.arrum.length) return current.arrum;
+            return [...DEFAULT_OFFICERS.arrumExp];
+        }
         return [];
     }
     function parseOfficersExcel(workbook) {
         if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) {
             throw new Error('File Excel tidak valid atau tidak memiliki sheet.');
         }
-        const categorized = { kol1: [], lar: [], npl: [] };
+        const categorized = { kol1: [], lar: [], npl: [], arrumExp: [] };
         const normalizeCat = (val) => {
             const s = String(val || '').toLowerCase().replace(/[^a-z0-9]/g, '');
             if (s.includes('kol1') || s === 'k1') return 'kol1';
             if (s.includes('lar')) return 'lar';
             if (s.includes('npl') || s.includes('propan') || s.includes('kol3') || s.includes('kol4') || s.includes('kol5')) return 'npl';
+            if (s.includes('arrum') || s.includes('expres') || s.includes('express')) return 'arrumExp';
             return null;
         };
         const isNameHeader = (val) => {
@@ -199,7 +243,7 @@
             }
 
             let headerRowIdx = -1;
-            let colKOL1 = -1, colLAR = -1, colNPL = -1;
+            let colKOL1 = -1, colLAR = -1, colNPL = -1, colArrum = -1;
             let colCategory = -1, colOfficerName = -1;
             const scanLimit = Math.min(rows.length, 25);
             for (let r = 0; r < scanLimit; r++) {
@@ -209,10 +253,11 @@
                     if (cCat === 'kol1') colKOL1 = idx;
                     else if (cCat === 'lar') colLAR = idx;
                     else if (cCat === 'npl') colNPL = idx;
+                    else if (cCat === 'arrumExp') colArrum = idx;
                     if (isCategoryHeader(cell)) colCategory = idx;
                     if (isNameHeader(cell)) colOfficerName = idx;
                 });
-                if ((colKOL1 >= 0 || colLAR >= 0 || colNPL >= 0) || (colCategory >= 0 && colOfficerName >= 0)) {
+                if ((colKOL1 >= 0 || colLAR >= 0 || colNPL >= 0 || colArrum >= 0) || (colCategory >= 0 && colOfficerName >= 0)) {
                     headerRowIdx = r;
                     break;
                 }
@@ -220,7 +265,7 @@
 
             if (headerRowIdx >= 0) {
                 const dataRows = rows.slice(headerRowIdx + 1);
-                if (colKOL1 >= 0 || colLAR >= 0 || colNPL >= 0) {
+                if (colKOL1 >= 0 || colLAR >= 0 || colNPL >= 0 || colArrum >= 0) {
                     dataRows.forEach(row => {
                         if (colKOL1 >= 0 && row[colKOL1]) {
                             const val = normalizeOfficerName(row[colKOL1]);
@@ -233,6 +278,10 @@
                         if (colNPL >= 0 && row[colNPL]) {
                             const val = normalizeOfficerName(row[colNPL]);
                             if (val && !normalizeCat(val) && !isNameHeader(val)) categorized.npl.push(val);
+                        }
+                        if (colArrum >= 0 && row[colArrum]) {
+                            const val = normalizeOfficerName(row[colArrum]);
+                            if (val && !normalizeCat(val) && !isNameHeader(val)) categorized.arrumExp.push(val);
                         }
                     });
                 } else if (colCategory >= 0 && colOfficerName >= 0) {
@@ -260,13 +309,20 @@
         const result = {
             kol1: [...new Set(categorized.kol1)],
             lar: [...new Set(categorized.lar)],
-            npl: [...new Set(categorized.npl)]
+            npl: [...new Set(categorized.npl)],
+            arrumExp: [...new Set(categorized.arrumExp)]
         };
-        const total = result.kol1.length + result.lar.length + result.npl.length;
+        const total = result.kol1.length + result.lar.length + result.npl.length + result.arrumExp.length;
         if (total === 0) {
-            throw new Error('Tidak ditemukan nama petugas dengan kategori KOL 1, LAR, atau NPL dalam file Excel. Pastikan terdapat kolom KATEGORI dan NAMA PETUGAS, atau kolom KOL 1, LAR, NPL.');
+            throw new Error('Tidak ditemukan nama petugas dengan kategori KOL 1, LAR, NPL, atau ARRUM EXPRES LOAN dalam file Excel. Pastikan terdapat kolom KATEGORI dan NAMA PETUGAS, atau kolom KOL 1, LAR, NPL, ARRUM EXPRES LOAN.');
         }
-        result.summary = { kol1Count: result.kol1.length, larCount: result.lar.length, nplCount: result.npl.length, total };
+        result.summary = {
+            kol1Count: result.kol1.length,
+            larCount: result.lar.length,
+            nplCount: result.npl.length,
+            arrumExpCount: result.arrumExp.length,
+            total
+        };
         return result;
     }
     function generateOfficersTemplate(xlsxLib) {
@@ -283,20 +339,23 @@
             ['LAR', 'SABANTRI GUNARDI', 'Account Officer'],
             ['NPL', 'AGUS SETIAWAN', 'Petugas NPL / Propan'],
             ['NPL', 'HENDRA WIJAYA', 'Petugas NPL / Propan'],
-            ['NPL', 'TIM PENANGANAN NPL MEDAN', 'Petugas NPL / Propan']
+            ['NPL', 'TIM PENANGANAN NPL MEDAN', 'Petugas NPL / Propan'],
+            ['ARRUM EXPRES LOAN', 'M RIFAL KAUTSAR', 'Petugas Arrum Exspres Loan'],
+            ['ARRUM EXPRES LOAN', 'NUR SALIM', 'Petugas Arrum Exspres Loan'],
+            ['ARRUM EXPRES LOAN', 'HENDRA PRATAMA S', 'Petugas Arrum Exspres Loan']
         ];
         const ws1 = XLSX.utils.aoa_to_sheet(sampleRows);
-        ws1['!cols'] = [{ wch: 15 }, { wch: 32 }, { wch: 25 }];
+        ws1['!cols'] = [{ wch: 20 }, { wch: 32 }, { wch: 30 }];
         XLSX.utils.book_append_sheet(wb, ws1, 'Daftar Petugas');
 
         const altRows = [
-            ['KOL 1', 'LAR', 'NPL'],
-            ['TONI PRIADI', 'FAHRUL ISMAIL', 'AGUS SETIAWAN'],
-            ['SUJARWO', 'AZRIL ALFIS', 'HENDRA WIJAYA'],
-            ['JIMMY RAFAEL K', 'SABANTRI GUNARDI', 'TIM PENANGANAN NPL MEDAN']
+            ['KOL 1', 'LAR', 'NPL', 'ARRUM EXPRES LOAN'],
+            ['TONI PRIADI', 'FAHRUL ISMAIL', 'AGUS SETIAWAN', 'M RIFAL KAUTSAR'],
+            ['SUJARWO', 'AZRIL ALFIS', 'HENDRA WIJAYA', 'NUR SALIM'],
+            ['JIMMY RAFAEL K', 'SABANTRI GUNARDI', 'TIM PENANGANAN NPL MEDAN', 'HENDRA PRATAMA S']
         ];
         const ws2 = XLSX.utils.aoa_to_sheet(altRows);
-        ws2['!cols'] = [{ wch: 25 }, { wch: 25 }, { wch: 25 }];
+        ws2['!cols'] = [{ wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }];
         XLSX.utils.book_append_sheet(wb, ws2, 'Format Kolom');
 
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -311,9 +370,27 @@
     }
     function filterRecap(rows, filters) {
         const term = (filters.search || '').trim().toLowerCase();
+        const targetDs = String(filters.dataset || '').toLowerCase();
+        const isArrumFilter = targetDs === 'arrumexp' || targetDs === 'arrum' || targetDs.includes('arrum');
+        const arrumSet = filters.arrumCreditNos || (typeof window !== 'undefined' && window.arrumCreditNos) || null;
+
         return rows.filter(row => {
             const day = localDay(row.captured_at);
-            return (!filters.branch || row.branch === filters.branch) && (!filters.dataset || row.dataset === filters.dataset)
+            const rDs = String(row.dataset || '').toLowerCase();
+            let matchesDataset = true;
+            if (filters.dataset) {
+                if (isArrumFilter) {
+                    const matchesArrum = rDs === 'arrumexp' || rDs === 'arrum'
+                        || (arrumSet && arrumSet.has(String(row.credit_no || '').trim()))
+                        || /ARRUM\s*EXPR?ES\s*LOAN/i.test(row.notes || '')
+                        || /ARRUM\s*EXPR?ES\s*LOAN/i.test(row.product || '');
+                    matchesDataset = Boolean(matchesArrum);
+                } else {
+                    matchesDataset = (row.dataset === filters.dataset);
+                }
+            }
+
+            return (!filters.branch || row.branch === filters.branch) && matchesDataset
                 && (!filters.start || day >= filters.start) && (!filters.end || day <= filters.end)
                 && (!filters.officer || officerName(row).toLowerCase() === filters.officer.toLowerCase())
                 && (!term || [row.cif,row.credit_no,row.customer_name,row.officer_name,row.actor_name,row.branch].some(value => String(value??'').toLowerCase().includes(term)));

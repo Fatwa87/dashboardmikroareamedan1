@@ -2025,7 +2025,7 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [followupOpen, setFollowupOpen] = useState(false);
 
-            const displayColumns = type === 'kol1'
+            const displayColumns = (type === 'kol1' || type === 'arrumExp')
                 ? ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG']
                 : type === 'klaim'
                     ? ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM']
@@ -2079,6 +2079,10 @@
                 klaim: {
                     bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-900',
                     badge: 'bg-teal-600 hover:bg-teal-700', iconBg: 'bg-teal-100', iconText: 'text-teal-700'
+                },
+                arrumExp: {
+                    bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-900',
+                    badge: 'bg-indigo-600 hover:bg-indigo-700', iconBg: 'bg-indigo-100', iconText: 'text-indigo-700'
                 }
             };
             const conf = colorConfig[type] || colorConfig.lar;
@@ -2128,7 +2132,7 @@
                                     <h2 className="text-2xl font-black text-slate-900 font-heading">
                                         Pemantauan Khusus {title}
                                     </h2>
-                                    <p className="text-xs text-slate-500 font-medium">Data Excel yang sudah difilter otomatis sesuai kolektibilitas</p>
+                                    <p className="text-xs text-slate-500 font-medium">{type === 'arrumExp' ? 'Data Excel yang sudah difilter khusus produk Arrum Express Loan' : 'Data Excel yang sudah difilter otomatis sesuai kolektibilitas'}</p>
                                 </div>
                             </div>
                         </div>
@@ -2169,7 +2173,7 @@
                             >
                                 <i className="fas fa-file-pdf mr-2"></i> Cetak PDF
                             </button>
-                            {['kol1', 'lar', 'npl'].includes(type) && (
+                            {['kol1', 'lar', 'npl', 'arrumExp'].includes(type) && (
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -2496,6 +2500,26 @@
                 'M MAULANA NASUTION',
                 'IWAN HENDRA SIMANULLANG',
                 'HENDIKO SITUNGKIR'
+            ],
+            arrumExp: [
+                'M RIFAL KAUTSAR',
+                'NUR SALIM',
+                'HENDRA PRATAMA S',
+                'PUTRI RAMADHANA',
+                'ARY DAMAITA TARIGAN',
+                'ANDRE WILIANSYAH',
+                'RENOL SINAGA',
+                'DOLLIS PANJAITAN',
+                'HERU KURNIAWAN',
+                'M FAISAL NUR',
+                'DIAN PRATAMA',
+                'IMAM MUNIRO SINURAT',
+                'ANDI SAMUEL SINAGA',
+                'NENCY NATALINA PURBA',
+                'ANGGA PRATAMA',
+                'ASAURI',
+                'M ZUBIR',
+                'AIDIL SYAHPUTRA'
             ]
         };
 
@@ -2507,7 +2531,8 @@
                         return {
                             kol1: Array.isArray(res.kol1) ? res.kol1 : [...DEFAULT_OFFICERS_FALLBACK.kol1],
                             lar: Array.isArray(res.lar) ? res.lar : [...DEFAULT_OFFICERS_FALLBACK.lar],
-                            npl: Array.isArray(res.npl) ? res.npl : [...DEFAULT_OFFICERS_FALLBACK.npl]
+                            npl: Array.isArray(res.npl) ? res.npl : [...DEFAULT_OFFICERS_FALLBACK.npl],
+                            arrumExp: Array.isArray(res.arrumExp) ? res.arrumExp : (Array.isArray(res.arrum) ? res.arrum : [...DEFAULT_OFFICERS_FALLBACK.arrumExp])
                         };
                     }
                 }
@@ -2518,7 +2543,8 @@
                         return {
                             kol1: Array.isArray(parsed.kol1) ? parsed.kol1 : [...DEFAULT_OFFICERS_FALLBACK.kol1],
                             lar: Array.isArray(parsed.lar) ? parsed.lar : [...DEFAULT_OFFICERS_FALLBACK.lar],
-                            npl: Array.isArray(parsed.npl) ? parsed.npl : [...DEFAULT_OFFICERS_FALLBACK.npl]
+                            npl: Array.isArray(parsed.npl) ? parsed.npl : [...DEFAULT_OFFICERS_FALLBACK.npl],
+                            arrumExp: Array.isArray(parsed.arrumExp) ? parsed.arrumExp : (Array.isArray(parsed.arrum) ? parsed.arrum : [...DEFAULT_OFFICERS_FALLBACK.arrumExp])
                         };
                     }
                 }
@@ -2526,7 +2552,8 @@
             return {
                 kol1: [...DEFAULT_OFFICERS_FALLBACK.kol1],
                 lar: [...DEFAULT_OFFICERS_FALLBACK.lar],
-                npl: [...DEFAULT_OFFICERS_FALLBACK.npl]
+                npl: [...DEFAULT_OFFICERS_FALLBACK.npl],
+                arrumExp: [...DEFAULT_OFFICERS_FALLBACK.arrumExp]
             };
         };
 
@@ -2540,7 +2567,8 @@
                 const payload = {
                     kol1: Array.isArray(data?.kol1) ? data.kol1 : [],
                     lar: Array.isArray(data?.lar) ? data.lar : [],
-                    npl: Array.isArray(data?.npl) ? data.npl : []
+                    npl: Array.isArray(data?.npl) ? data.npl : [],
+                    arrumExp: Array.isArray(data?.arrumExp) ? data.arrumExp : (Array.isArray(data?.arrum) ? data.arrum : [])
                 };
                 localStorage.setItem('pegadaian_officers_v1', JSON.stringify(payload));
                 window.dispatchEvent(new CustomEvent('dashboard_officers_updated', { detail: payload }));
@@ -2575,13 +2603,14 @@
             const [newOfficerKol1, setNewOfficerKol1] = useState("");
             const [newOfficerLar, setNewOfficerLar] = useState("");
             const [newOfficerNpl, setNewOfficerNpl] = useState("");
+            const [newOfficerArrum, setNewOfficerArrum] = useState("");
 
             const safeCabangList = Array.isArray(cabangList) ? cabangList : [];
             const safeAoList = Array.isArray(aoList) ? aoList : [];
             const safeAdminList = Array.isArray(adminList) ? adminList : [];
             const safeProductList = Array.isArray(productList) ? productList : [];
             const safeAppUsers = Array.isArray(appUsers) ? appUsers : [];
-            const safeOfficers = officers || { kol1: [], lar: [], npl: [] };
+            const safeOfficers = officers || { kol1: [], lar: [], npl: [], arrumExp: [] };
 
             const handleOfficersExcelUpload = async (e) => {
                 const file = e.target.files && e.target.files[0];
@@ -2609,7 +2638,7 @@
                         try { if (saveMasterItem) await saveMasterItem('ao', saved.lar); } catch(_) {}
                     }
 
-                    showToast(`Daftar petugas berhasil diimpor: KOL 1 (${(saved.kol1 || []).length}), LAR (${(saved.lar || []).length}), NPL (${(saved.npl || []).length} petugas).`);
+                    showToast(`Daftar petugas berhasil diimpor: KOL 1 (${(saved.kol1 || []).length}), LAR (${(saved.lar || []).length}), NPL (${(saved.npl || []).length}), Exspres Loan (${(saved.arrumExp || []).length} petugas).`);
                 } catch (error) {
                     showToast(`Gagal impor petugas: ${error.message}`, 'error');
                 } finally {
@@ -2635,8 +2664,9 @@
                 const clean = String(name || '').trim().toUpperCase();
                 if (!clean) return;
                 const currentList = Array.isArray(safeOfficers[category]) ? safeOfficers[category] : [];
+                const catLabel = category === 'arrumExp' ? 'ARRUM EXSPRES LOAN' : category.toUpperCase();
                 if (currentList.includes(clean)) {
-                    showToast(`Petugas "${clean}" sudah terdaftar di kategori ${category.toUpperCase()}.`, 'error');
+                    showToast(`Petugas "${clean}" sudah terdaftar di kategori ${catLabel}.`, 'error');
                     return;
                 }
                 const updated = { ...safeOfficers, [category]: [...currentList, clean] };
@@ -2650,7 +2680,7 @@
                     if (setAoList) setAoList(saved.lar || []);
                     if (saveMasterItem) saveMasterItem('ao', saved.lar || []).catch(()=>{});
                 }
-                showToast(`Petugas ${clean} ditambahkan ke ${category.toUpperCase()}.`);
+                showToast(`Petugas ${clean} ditambahkan ke ${catLabel}.`);
             };
 
             const removeSingleOfficer = (category, name) => {
@@ -2666,11 +2696,12 @@
                     if (setAoList) setAoList(saved.lar || []);
                     if (saveMasterItem) saveMasterItem('ao', saved.lar || []).catch(()=>{});
                 }
-                showToast(`Petugas ${name} dihapus dari ${category.toUpperCase()}.`);
+                const catLabel = category === 'arrumExp' ? 'ARRUM EXSPRES LOAN' : category.toUpperCase();
+                showToast(`Petugas ${name} dihapus dari ${catLabel}.`);
             };
 
             const resetCategoryOfficers = (category) => {
-                const label = category === 'kol1' ? 'KOL 1' : category === 'lar' ? 'LAR' : 'NPL';
+                const label = category === 'kol1' ? 'KOL 1' : category === 'lar' ? 'LAR' : category === 'arrumExp' ? 'Arrum Exspres Loan' : 'NPL';
                 setConfirmModal({
                     open: true,
                     title: `Reset Petugas ${label}`,
@@ -3016,13 +3047,13 @@
                             <div className="flex items-center space-x-2.5">
                                 <i className="fas fa-circle-info text-emerald-600 text-base shrink-0"></i>
                                 <span>
-                                    File Excel dapat berupa format kolom <strong>KATEGORI</strong> &amp; <strong>NAMA PETUGAS</strong> atau kolom berdampingan (<strong>KOL 1</strong>, <strong>LAR</strong>, <strong>NPL</strong>). Petugas yang terdaftar akan muncul sebagai pilihan dropdown saat sebelum mengambil foto kunjungan.
+                                    File Excel dapat berupa format kolom <strong>KATEGORI</strong> &amp; <strong>NAMA PETUGAS</strong> atau kolom berdampingan (<strong>KOL 1</strong>, <strong>LAR</strong>, <strong>NPL</strong>, <strong>ARRUM EXPRES LOAN</strong>). Petugas yang terdaftar akan muncul sebagai pilihan dropdown saat sebelum mengambil foto kunjungan.
                                 </span>
                             </div>
                         </div>
 
-                        {/* 3 Category Cards: KOL 1, LAR, NPL */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        {/* 4 Category Cards: KOL 1, LAR, NPL, Arrum Exspres Loan */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
                             {/* KOL 1 */}
                             <div className="bg-amber-50/50 border border-amber-200/90 p-5 rounded-3xl flex flex-col justify-between shadow-xs">
                                 <div>
@@ -3184,6 +3215,61 @@
                                         className="text-[11px] text-rose-700 hover:text-rose-900 font-bold underline"
                                     >
                                         Kembalikan default NPL
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Arrum Exspres Loan */}
+                            <div className="bg-indigo-50/50 border border-indigo-200/90 p-5 rounded-3xl flex flex-col justify-between shadow-xs">
+                                <div>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <div className="flex items-center space-x-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                                            <h4 className="font-extrabold text-indigo-950 text-xs uppercase tracking-wider font-heading">
+                                                Petugas Exspres Loan
+                                            </h4>
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-900 border border-indigo-200">
+                                            {(safeOfficers.arrumExp || []).length} Petugas
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-indigo-800/80 mb-3">Tanggung jawab: Petugas Arrum Exspres Loan</p>
+                                    <div className="flex space-x-1.5 mb-3">
+                                        <input
+                                            type="text"
+                                            value={newOfficerArrum}
+                                            onChange={(e) => setNewOfficerArrum(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') addSingleOfficer('arrumExp', newOfficerArrum, setNewOfficerArrum); }}
+                                            placeholder="Nama Petugas Exspres Loan..."
+                                            className="flex-1 p-2 bg-white border border-indigo-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => addSingleOfficer('arrumExp', newOfficerArrum, setNewOfficerArrum)}
+                                            className="bg-indigo-600 text-white px-3 rounded-xl text-xs font-bold hover:bg-indigo-700 transition"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-xs mb-3">
+                                        {(safeOfficers.arrumExp || []).map((name, idx) => (
+                                            <li key={idx} className="flex justify-between items-center p-2 bg-white rounded-xl border border-indigo-100 font-semibold text-slate-700">
+                                                <span className="truncate">{name}</span>
+                                                <button type="button" onClick={() => removeSingleOfficer('arrumExp', name)} className="text-slate-400 hover:text-rose-600 p-1" title={`Hapus ${name}`}><i className="fas fa-times"></i></button>
+                                            </li>
+                                        ))}
+                                        {!(safeOfficers.arrumExp || []).length && (
+                                            <li className="p-4 text-center text-slate-400 italic">Belum ada petugas Arrum Exspres Loan.</li>
+                                        )}
+                                    </ul>
+                                    <button
+                                        type="button"
+                                        onClick={() => resetCategoryOfficers('arrumExp')}
+                                        className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold underline"
+                                    >
+                                        Kembalikan default Exspres Loan
                                     </button>
                                 </div>
                             </div>
@@ -5412,6 +5498,45 @@ const DashboardAsuransiView = ({ showToast }) => {
             const [cabangList, setCabangList] = useState([]);
             const [appUsers, setAppUsers] = useState([]);
 
+            const isArrumExpressLoan = (item) => {
+                if (!item || typeof item !== 'object') return false;
+                const prod = String(
+                    item['SUB PRODUK'] || item['SUB_PRODUK'] || item['SubProduk'] ||
+                    item['Produk'] || item['PRODUK'] || item['JenisProduk'] ||
+                    item.sub_produk || item.produk || ''
+                ).trim().toUpperCase();
+                return prod === 'ARRUM EXPRESS LOAN' || prod === 'ARRUM EXSPRES LOAN' ||
+                    (prod.includes('ARRUM') && (prod.includes('EXPRESS') || prod.includes('EXSPRES')));
+            };
+
+            const arrumExpData = useMemo(() => {
+                const seen = new Set();
+                const result = [];
+                const sources = [
+                    ...(kol1Data || []).map(r => ({ ...r, _dataset: r._dataset || 'kol1' })),
+                    ...(larData || []).map(r => ({ ...r, _dataset: r._dataset || 'lar' })),
+                    ...(nplData || []).map(r => ({ ...r, _dataset: r._dataset || 'npl' })),
+                    ...(klaimData || []).map(r => ({ ...r, _dataset: r._dataset || 'klaim' }))
+                ];
+                for (const item of sources) {
+                    if (!item) continue;
+                    if (isArrumExpressLoan(item)) {
+                        const key = String(item.NO_KONTRAK || item.NoKredit || item._id || JSON.stringify(item));
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            result.push(item);
+                        }
+                    }
+                }
+                return result;
+            }, [kol1Data, larData, nplData, klaimData]);
+
+            useEffect(() => {
+                if (typeof window !== 'undefined') {
+                    window.arrumCreditNos = new Set(arrumExpData.map(item => String(item.NO_KONTRAK || item.NoKredit || '').trim()).filter(Boolean));
+                }
+            }, [arrumExpData]);
+
             // Sesi Idle Timeout (Keamanan Sesi Otomatis - Prioritas 3)
             const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 menit tanpa aktivitas
             const IDLE_WARNING_MS = 60 * 1000;      // Peringatan 60 detik sebelum sesi ditutup
@@ -5796,6 +5921,12 @@ const DashboardAsuransiView = ({ showToast }) => {
                                         <i className="fas fa-circle-exclamation w-6 text-rose-400 text-sm"></i> NPL (KOL 3-5)
                                     </button>
                                     <button
+                                        onClick={() => { setActiveTab('repArrumExp'); setIsSidebarOpen(false) }}
+                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repArrumExp' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                    >
+                                        <i className="fas fa-bolt-lightning w-6 text-indigo-400 text-sm"></i> Arrum Exspres Loan
+                                    </button>
+                                    <button
                                         onClick={() => { setActiveTab('repKlaim'); setIsSidebarOpen(false) }}
                                         className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repKlaim' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                     >
@@ -6088,6 +6219,18 @@ const DashboardAsuransiView = ({ showToast }) => {
                                     setIsLoading={setIsLoading}
                                 />
                             )}
+                            {activeTab === 'repArrumExp' && (
+                                <TableNasabahView
+                                    title="Arrum Exspres Loan"
+                                    currentUser={currentUser}
+                                    data={arrumExpData}
+                                    type="arrumExp"
+                                    icon="fa-bolt-lightning"
+                                    syncFromSupabase={syncFromSupabase}
+                                    showToast={showToast}
+                                    setIsLoading={setIsLoading}
+                                />
+                            )}
                             {activeTab === 'repKlaim' && (
                                 <TableNasabahView
                                     title="Tindak Lanjut Klaim"
@@ -6118,7 +6261,13 @@ const DashboardAsuransiView = ({ showToast }) => {
                                     showToast={showToast}
                                 />
                             )}
-                            {activeTab === 'rekFollowup' && isAdmin && <FollowupAdminView currentUser={currentUser} showToast={showToast} />}
+                            {activeTab === 'rekFollowup' && isAdmin && (
+                                <FollowupAdminView
+                                    currentUser={currentUser}
+                                    showToast={showToast}
+                                    arrumExpData={arrumExpData}
+                                />
+                            )}
                             {activeTab === 'admin' && isAdmin && (
                                 <div className="space-y-6">
                                     <ErrorBoundary fallbackTitle="Kendala Memuat Menu Kelola & Setting">

@@ -175,12 +175,29 @@
         if(!window.FollowupCore)throw new Error('Modul tindak lanjut belum siap. Muat ulang halaman.');
         const details=window.FollowupCore.validateFollowupDetails(capture.notes,capture.officerName);
         const record = capture.customer;
-        const draft = checked(await getClient().rpc('begin_credit_followup', {
-            p_id:capture.id, p_dataset:capture.dataset, p_source_record_id:record.sourceId,
-            p_credit_no:record.creditNo, p_branch:record.branch, p_captured_at:capture.capturedAt,
-            p_latitude:capture.location.latitude, p_longitude:capture.location.longitude,
-            p_accuracy_m:capture.location.accuracy, p_map_included:capture.mapIncluded, p_notes:details.notes, p_officer_name:details.officerName
-        }));
+        const finalNotes = (capture.dataset === 'arrumExp' || capture.dataset === 'arrum') && !/ARRUM\s*EXPR?ES\s*LOAN/i.test(details.notes)
+            ? `[Arrum Exspres Loan] ${details.notes}`
+            : details.notes;
+        let draft;
+        try {
+            draft = checked(await getClient().rpc('begin_credit_followup', {
+                p_id:capture.id, p_dataset:capture.dataset, p_source_record_id:record.sourceId,
+                p_credit_no:record.creditNo, p_branch:record.branch, p_captured_at:capture.capturedAt,
+                p_latitude:capture.location.latitude, p_longitude:capture.location.longitude,
+                p_accuracy_m:capture.location.accuracy, p_map_included:capture.mapIncluded, p_notes:finalNotes, p_officer_name:details.officerName
+            }));
+        } catch (rpcError) {
+            if ((capture.dataset === 'arrumExp' || capture.dataset === 'arrum') && record?._dataset && record._dataset !== capture.dataset) {
+                draft = checked(await getClient().rpc('begin_credit_followup', {
+                    p_id:capture.id, p_dataset:record._dataset, p_source_record_id:record.sourceId,
+                    p_credit_no:record.creditNo, p_branch:record.branch, p_captured_at:capture.capturedAt,
+                    p_latitude:capture.location.latitude, p_longitude:capture.location.longitude,
+                    p_accuracy_m:capture.location.accuracy, p_map_included:capture.mapIncluded, p_notes:finalNotes, p_officer_name:details.officerName
+                }));
+            } else {
+                throw rpcError;
+            }
+        }
         if (draft.deleted_at) throw new Error('Bukti tindak lanjut sudah dihapus oleh admin.');
         if (draft.status === 'submitted') return draft;
         const storage = getClient().storage.from('credit-followups');

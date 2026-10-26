@@ -89,7 +89,8 @@
         const pageWidth=doc.internal.pageSize.getWidth(),pageHeight=doc.internal.pageSize.getHeight();
         const uniqueCustomers=new Set(rows.map(row=>`${row.branch}|${row.credit_no}`)).size;
         const printedAt=pdfText(Core.formatTime(now));
-        const subtitle=pdfText(`Cabang: ${filters.branch||'Semua Cabang'} | Kategori: ${Core.LABELS[filters.dataset]||'Semua Kategori'}`);
+        const catLabel = (filters.dataset === 'arrumExp' || filters.dataset === 'arrum') ? 'Arrum Exspres Loan' : (Core.LABELS[filters.dataset] || 'Semua Kategori');
+        const subtitle=pdfText(`Cabang: ${filters.branch||'Semua Cabang'} | Kategori: ${catLabel}`);
         const period=pdfText(`Periode foto: ${filters.start||'Awal'} s.d. ${filters.end||'Sekarang'}`+(filters.search?` | Pencarian: ${filters.search.slice(0,70)}`:''));
         const header=()=>{
             doc.setFillColor(0,135,68);doc.rect(12,9,pageWidth-24,1.4,'F');
@@ -106,12 +107,16 @@
         const drawnPhotos=new Set();
         doc.autoTable({
             head:[['No.','Waktu Foto (WIB)','Nasabah / Identitas Kredit','Kategori / Cabang','Nama Petugas','Lokasi / Catatan Tindak Lanjut','Foto Tindak Lanjut']],
-            body:rows.map((row,index)=>[
-                String(index+1),pdfText(Core.formatTime(row.captured_at)).replace(', ','\n'),
-                pdfText(`${row.customer_name}\nCIF: ${row.cif||'-'}\nKredit: ${row.credit_no}`),
-                pdfText(`${Core.LABELS[row.dataset]}\n${row.branch}`),pdfText(`${Core.officerName(row)}\nAkun: ${row.actor_name}`),
-                pdfText(`GPS: ${Number(row.latitude).toFixed(6)}, ${Number(row.longitude).toFixed(6)}\nAkurasi: +/-${Math.round(row.accuracy_m)} m\n\n${row.notes||'Tidak ada catatan.'}`),''
-            ]),
+            body:rows.map((row,index)=>{
+                const isArrum = row.dataset === 'arrumExp' || row.dataset === 'arrum' || (filters.arrumCreditNos && filters.arrumCreditNos.has(String(row.credit_no).trim())) || /ARRUM\s*EXPR?ES\s*LOAN/i.test(row.notes || '');
+                const rowCat = isArrum ? 'Arrum Exspres Loan' : (Core.LABELS[row.dataset] || row.dataset || '-');
+                return [
+                    String(index+1),pdfText(Core.formatTime(row.captured_at)).replace(', ','\n'),
+                    pdfText(`${row.customer_name}\nCIF: ${row.cif||'-'}\nKredit: ${row.credit_no}`),
+                    pdfText(`${rowCat}\n${row.branch}`),pdfText(`${Core.officerName(row)}\nAkun: ${row.actor_name}`),
+                    pdfText(`GPS: ${Number(row.latitude).toFixed(6)}, ${Number(row.longitude).toFixed(6)}\nAkurasi: +/-${Math.round(row.accuracy_m)} m\n\n${row.notes||'Tidak ada catatan.'}`),''
+                ];
+            }),
             startY:42,margin:{top:42,right:12,bottom:12,left:12},tableWidth:273,
             theme:'grid',showHead:'everyPage',rowPageBreak:'avoid',
             styles:{font:'helvetica',fontSize:7.2,textColor:[30,41,59],lineColor:[215,223,230],lineWidth:.12,cellPadding:2.2,valign:'middle',overflow:'linebreak',minCellHeight:36.5},

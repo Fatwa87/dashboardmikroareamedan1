@@ -7,13 +7,14 @@
 
     function getCore() {
         return (typeof window !== 'undefined' && window.FollowupCore) || {
-            LABELS: { kol1: 'KOL 1 (1–10 Hari)', lar: 'LAR (11–30 Hari)', npl: 'NPL (KOL 3–5)' }
+            LABELS: { kol1: 'KOL 1 (1–10 Hari)', lar: 'LAR (11–30 Hari)', npl: 'NPL (KOL 3–5)', arrumExp: 'Arrum Exspres Loan' }
         };
     }
 
     function getLabel(dataset) {
         const key = String(dataset || '').toLowerCase();
         const core = getCore();
+        if (key === 'arrumexp' || key === 'arrum' || key.includes('arrum')) return 'Arrum Exspres Loan';
         return (core && core.LABELS && (core.LABELS[key] || core.LABELS[dataset])) || key.toUpperCase();
     }
 
@@ -347,7 +348,13 @@
             const b = String(branch || '').toLowerCase();
             const ds = String(dataset || '').toLowerCase();
             const cn = String(row?.creditNo || '');
-            return history.filter(item => item && String(item.branch || '').toLowerCase() === b && String(item.dataset || '').toLowerCase() === ds && String(item.credit_no || '') === cn).length;
+            return history.filter(item => {
+                if (!item) return false;
+                if (String(item.branch || '').toLowerCase() !== b) return false;
+                if (String(item.credit_no || '') !== cn) return false;
+                if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+                return String(item.dataset || '').toLowerCase() === ds;
+            }).length;
         };
 
         const datasetLabel = getLabel(dataset);
@@ -498,13 +505,28 @@
         </Modal>;
     }
 
-    function FollowupAdminView({currentUser,showToast}) {
+    function FollowupAdminView({currentUser,showToast,arrumExpData}) {
         const [rows,setRows]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[photo,setPhoto]=useState(null);
         const [deleteTarget,setDeleteTarget]=useState(null),[deleting,setDeleting]=useState(false),[deleteError,setDeleteError]=useState('');
         const [filters,setFilters]=useState({branch:'',dataset:'',officer:'',start:'',end:'',search:''});
         const [pdfProgress,setPdfProgress]=useState(null),[pdfError,setPdfError]=useState('');
         const pdfController=useRef(null);
         const generation=useRef(0),mounted=useRef(true);
+
+        const arrumCreditNos = useMemo(() => {
+            const list = arrumExpData || (typeof window !== 'undefined' && window.arrumCreditNos) || [];
+            if (list instanceof Set) return list;
+            return new Set((Array.isArray(list) ? list : []).map(r => String(r?.NO_KONTRAK || r?.NoKredit || r?.credit_no || '').trim()).filter(Boolean));
+        }, [arrumExpData]);
+
+        const isRowArrumExp = (r) => {
+            if (!r) return false;
+            const ds = String(r.dataset || '').toLowerCase();
+            if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+            if (arrumCreditNos.has(String(r.credit_no || '').trim())) return true;
+            if (/ARRUM\s*EXPR?ES\s*LOAN/i.test(r.notes || '') || /ARRUM\s*EXPR?ES\s*LOAN/i.test(r.product || '')) return true;
+            return false;
+        };
 
         const load=async()=>{
             const current=++generation.current;setLoading(true);setError('');
@@ -521,12 +543,16 @@
 
         const core = getCore();
         const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
-        const visible=useMemo(()=>(core && typeof core.filterRecap === 'function' ? core.filterRecap(safeRows,filters) : safeRows),[safeRows,filters]);
+        const visible=useMemo(()=>{
+            const activeFilters = { ...filters, arrumCreditNos };
+            return (core && typeof core.filterRecap === 'function' ? core.filterRecap(safeRows,activeFilters) : safeRows);
+        },[safeRows,filters,arrumCreditNos]);
         const branches=[...new Set(safeRows.map(row=>row.branch).filter(Boolean))].sort();
         const officersList=useMemo(()=>[...new Set(safeRows.map(r => (core && typeof core.officerName === 'function' ? core.officerName(r) : (r?.officer_name || r?.actor_name || ''))).filter(Boolean))].sort(),[safeRows]);
         const countKol1=useMemo(()=>safeRows.filter(r=>r && r.dataset==='kol1').length,[safeRows]);
         const countLar=useMemo(()=>safeRows.filter(r=>r && r.dataset==='lar').length,[safeRows]);
         const countNpl=useMemo(()=>safeRows.filter(r=>r && r.dataset==='npl').length,[safeRows]);
+        const countArrumExp=useMemo(()=>safeRows.filter(isRowArrumExp).length,[safeRows,arrumCreditNos]);
 
         const change=(name,value)=>setFilters(previous=>({...previous,[name]:value}));
         const remove=async()=>{
@@ -556,7 +582,7 @@
                 const DB = getDB();
                 await window.FollowupPdf.exportReport({
                     rows:[...visible],
-                    filters:{...filters},
+                    filters:{...filters, arrumCreditNos},
                     getPhotoUrl: (DB && typeof DB.followupPhotoUrl === 'function') ? DB.followupPhotoUrl : (async () => ''),
                     signal:controller.signal,
                     onProgress:progress=>{if(mounted.current)setPdfProgress(progress);}
@@ -586,7 +612,7 @@
                 </div>
             </Modal>}
             <div className="bg-white border border-slate-200 p-5 rounded-3xl flex flex-wrap justify-between gap-4 items-center">
-                <div><h1 className="text-xl font-black text-slate-900">Rekap Tindak Lanjut</h1><p className="text-xs text-slate-500 mt-1">Bukti kunjungan KOL 1, LAR, dan NPL dari seluruh petugas.</p></div>
+                <div><h1 className="text-xl font-black text-slate-900">Rekap Tindak Lanjut</h1><p className="text-xs text-slate-500 mt-1">Bukti kunjungan KOL 1, LAR, NPL, dan Arrum Exspres Loan dari seluruh petugas.</p></div>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" disabled={loading||!!pdfProgress} onClick={load} className={`${button} bg-slate-100`}><i className="fas fa-rotate mr-2"></i>Muat Ulang</button>
                     <button type="button" disabled={loading||!visible.length||!!error||!!pdfProgress} onClick={exportCsv} className={`${button} bg-emerald-600 text-white`}>Unduh Rekap CSV</button>
@@ -652,6 +678,18 @@
                         <i className="fas fa-circle-exclamation mr-1.5 text-[10px]"></i>
                         NPL ({countNpl})
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => change('dataset', 'arrumExp')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${
+                            filters.dataset === 'arrumExp'
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border border-indigo-200'
+                        }`}
+                    >
+                        <i className="fas fa-bolt-lightning mr-1.5 text-[10px]"></i>
+                        Arrum Exspres Loan ({countArrumExp})
+                    </button>
                 </div>
                 {filters.dataset && (
                     <button
@@ -667,10 +705,11 @@
             <div className="bg-white p-4 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
                 <label className="text-xs font-bold text-slate-500">Cabang<select aria-label="Cabang rekap tindak lanjut" value={filters.branch} onChange={event=>change('branch',event.target.value)} className={`${field} mt-1`}><option value="">Semua Cabang</option>{branches.map(branch=><option key={branch}>{branch}</option>)}</select></label>
                 <label className="text-xs font-bold text-slate-500">Kategori<select aria-label="Kategori rekap tindak lanjut" value={filters.dataset} onChange={event=>change('dataset',event.target.value)} className={`${field} mt-1`}>
-                    <option value="">Semua Kategori (KOL 1, LAR, NPL)</option>
+                    <option value="">Semua Kategori (KOL 1, LAR, NPL, Arrum Exspres)</option>
                     <option value="kol1">KOL 1 (1–10 Hari)</option>
                     <option value="lar">LAR (11–30 Hari)</option>
                     <option value="npl">NPL (KOL 3–5)</option>
+                    <option value="arrumExp">Arrum Exspres Loan</option>
                 </select></label>
                 <label className="text-xs font-bold text-slate-500">Petugas<select aria-label="Petugas rekap tindak lanjut" value={filters.officer || ''} onChange={event=>change('officer',event.target.value)} className={`${field} mt-1`}><option value="">Semua Petugas</option>{officersList.map(officer=><option key={officer} value={officer}>{officer}</option>)}</select></label>
                 <label className="text-xs font-bold text-slate-500">Mulai tanggal (WIB)<input type="date" value={filters.start} max={filters.end||undefined} onChange={event=>change('start',event.target.value)} className={`${field} mt-1`} /></label>
@@ -681,7 +720,7 @@
             {loading?<p className="text-sm text-slate-500 p-6">Memuat bukti tindak lanjut...</p>:<div className="bg-white border border-slate-200 rounded-3xl overflow-x-auto">
                 <table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-500"><tr>{['Waktu Foto (WIB)','Kategori / Cabang','CIF / No Kredit','Nama Nasabah','Nama Petugas','Lokasi','Bukti / Catatan'].map(label=><th key={label} className="p-4 whitespace-nowrap">{label}</th>)}</tr></thead>
                     <tbody className="divide-y divide-slate-100">{visible.map(row=><tr key={row.id}>
-                        <td className="p-4 whitespace-nowrap">{core?.formatTime ? core.formatTime(row.captured_at) : row.captured_at}</td><td className="p-4"><span className="font-bold">{getLabel(row.dataset)}</span><br/>{row.branch}</td>
+                        <td className="p-4 whitespace-nowrap">{core?.formatTime ? core.formatTime(row.captured_at) : row.captured_at}</td><td className="p-4"><span className="font-bold">{isRowArrumExp(row) ? 'Arrum Exspres Loan' : getLabel(row.dataset)}</span><br/>{row.branch}</td>
                         <td className="p-4 font-mono whitespace-nowrap">{row.cif}<br/><strong>{row.credit_no}</strong></td><td className="p-4 font-bold">{row.customer_name}</td><td className="p-4"><p className="font-bold">{(core?.officerName ? core.officerName(row) : (row.officer_name || row.actor_name))}</p><p className="text-slate-400 mt-1">Akun: {row.actor_name}</p>{!row.officer_name&&<p className="text-amber-700 mt-1">Nama belum diisi (data lama)</p>}</td>
                         <td className="p-4 whitespace-nowrap">
                             {hasValidCoords(row.latitude, row.longitude) ? (
