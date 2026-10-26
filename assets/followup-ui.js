@@ -1,4 +1,3 @@
-/* Followup UI Components - Precompiled for direct browser execution (CORS & file:// safe) */
 (function () {
   const {
     useState,
@@ -260,8 +259,16 @@
         stop();
       };
     }, [facing, !!capture]);
+    const isPhotoAllowed = getCore() && typeof getCore().isPhotoAccessAllowed === 'function' ? getCore().isPhotoAccessAllowed() : (() => {
+      const hour = new Date().getHours();
+      return hour >= 6 && hour < 18;
+    })();
     const takePhoto = async () => {
       const core = getCore();
+      if (!isPhotoAllowed) {
+        setError('Lampiran foto tindak lanjut tidak dapat diambil melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.');
+        return;
+      }
       const cleanName = core && typeof core.cleanFollowupText === 'function' ? core.cleanFollowupText(officerName) : String(officerName || '').trim();
       if (!cleanName) {
         setError('Pilih nama petugas terlebih dahulu sebelum mengambil foto.');
@@ -320,6 +327,10 @@
       }
     };
     const save = async () => {
+      if (!isPhotoAllowed) {
+        setError('Lampiran foto tindak lanjut tidak dapat disimpan melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.');
+        return;
+      }
       let details;
       const core = getCore();
       try {
@@ -362,7 +373,11 @@
       className: "mt-1"
     }, record?.branch || 'Cabang', " \xB7 ", datasetLabel)), /*#__PURE__*/React.createElement("span", {
       className: "px-2.5 py-1 rounded-xl text-[11px] font-black uppercase bg-emerald-600 text-white shadow-xs"
-    }, String(dataset || '').toUpperCase())), !capture && /*#__PURE__*/React.createElement("div", {
+    }, String(dataset || '').toUpperCase())), !isPhotoAllowed && /*#__PURE__*/React.createElement("div", {
+      className: "p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl text-xs font-semibold flex items-center gap-2.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-lock text-amber-600 text-sm"
+    }), /*#__PURE__*/React.createElement("span", null, "Lampiran foto ditutup melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.")), !capture && /*#__PURE__*/React.createElement("div", {
       className: "rounded-2xl bg-slate-50 border border-slate-200 p-3.5 space-y-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center justify-between gap-1"
@@ -430,7 +445,7 @@
     }, "Ganti Kamera"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: takePhoto,
-      disabled: busy || !ready || !cleanOfficer,
+      disabled: busy || !ready || !cleanOfficer || !isPhotoAllowed,
       className: `${button} bg-emerald-600 text-white flex items-center shadow-md`
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-camera mr-2"
@@ -471,7 +486,7 @@
       className: `${button} bg-slate-100`
     }, "Foto Ulang"), /*#__PURE__*/React.createElement("button", {
       type: "button",
-      disabled: busy || !cleanNotes || !cleanOfficer,
+      disabled: busy || !cleanNotes || !cleanOfficer || !isPhotoAllowed,
       onClick: save,
       className: `${button} bg-emerald-600 text-white`
     }, /*#__PURE__*/React.createElement("i", {
@@ -490,6 +505,7 @@
       [selected, setSelected] = useState(null),
       [history, setHistory] = useState([]),
       [historyError, setHistoryError] = useState('');
+    const [lockedModalOpen, setLockedModalOpen] = useState(false);
     useEffect(() => {
       let active = true;
       const DB = getDB();
@@ -505,6 +521,10 @@
       };
     }, []);
     const core = getCore();
+    const isPhotoAllowed = core && typeof core.isPhotoAccessAllowed === 'function' ? core.isPhotoAccessAllowed() : (() => {
+      const hour = new Date().getHours();
+      return hour >= 6 && hour < 18;
+    })();
     const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
     const customerFn = core && typeof core.customer === 'function' ? core.customer : row => ({
       sourceId: row?._id || null,
@@ -532,6 +552,13 @@
       }).length;
     };
     const datasetLabel = getLabel(dataset);
+    const handleAttachPhotoClick = row => {
+      if (!isPhotoAllowed) {
+        setLockedModalOpen(true);
+        return;
+      }
+      setSelected(row);
+    };
     if (selected) return /*#__PURE__*/React.createElement(CameraCapture, {
       record: selected,
       dataset: dataset,
@@ -549,7 +576,32 @@
       wide: true
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-4"
+    }, lockedModalOpen && /*#__PURE__*/React.createElement(Modal, {
+      title: "Lampirkan Foto Ditutup",
+      onClose: () => setLockedModalOpen(false)
     }, /*#__PURE__*/React.createElement("div", {
+      className: "space-y-4 text-center py-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl border border-amber-200"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-lock"
+    })), /*#__PURE__*/React.createElement("h3", {
+      className: "text-base font-black text-slate-900"
+    }, "Waktu Pengisian Tindak Lanjut Telah Berakhir"), /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-slate-600 max-w-md mx-auto leading-relaxed"
+    }, "Fitur ", /*#__PURE__*/React.createElement("strong", null, "Lampirkan Foto"), " saat mau tindak lanjut untuk kategori ", /*#__PURE__*/React.createElement("strong", null, datasetLabel), " tidak dapat dilakukan melewati jam 18.00 WIB."), /*#__PURE__*/React.createElement("div", {
+      className: "p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-semibold text-amber-900 inline-flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-clock text-amber-600"
+    }), "Jam Operasional Lampirkan Foto: ", /*#__PURE__*/React.createElement("strong", null, "06.00 \u2013 18.00 WIB")), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-slate-500 max-w-md mx-auto"
+    }, "Akses untuk melampirkan foto tindak lanjut akan kembali dibuka besok pagi pada pukul ", /*#__PURE__*/React.createElement("strong", null, "06.00 WIB"), ". Rekap tindak lanjut tetap dapat dilihat kapan pun."), /*#__PURE__*/React.createElement("div", {
+      className: "pt-2 flex justify-center"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setLockedModalOpen(false),
+      className: `${button} bg-slate-900 text-white px-6`
+    }, "Saya Mengerti")))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-3 justify-between items-center"
     }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
       className: "text-sm font-bold text-emerald-800"
@@ -565,7 +617,21 @@
       placeholder: "Cari CIF, no kredit, atau nama nasabah",
       value: search,
       onChange: event => setSearch(event.target.value)
-    })), historyError && /*#__PURE__*/React.createElement("p", {
+    })), !isPhotoAllowed && /*#__PURE__*/React.createElement("div", {
+      className: "p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 text-sm border border-amber-200"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-clock"
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "font-bold text-amber-950 flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-lock text-amber-600"
+    }), "Lampirkan Foto Ditutup (Melewati Jam 18.00 WIB)"), /*#__PURE__*/React.createElement("p", {
+      className: "mt-0.5 text-amber-800 leading-relaxed"
+    }, "Sesuai ketentuan, pengambilan dan lampiran foto saat mau tindak lanjut untuk kategori ", /*#__PURE__*/React.createElement("strong", null, datasetLabel), " tidak dapat dilakukan melewati jam 18.00 WIB dan kembali bisa dibuka pukul 06.00 WIB pagi."))), historyError && /*#__PURE__*/React.createElement("p", {
       role: "alert",
       className: "text-xs text-amber-800 bg-amber-50 p-3 rounded-xl"
     }, "Riwayat belum dapat dimuat: ", historyError), /*#__PURE__*/React.createElement("div", {
@@ -591,13 +657,20 @@
       className: "p-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-2 items-center"
-    }, /*#__PURE__*/React.createElement("button", {
+    }, isPhotoAllowed ? /*#__PURE__*/React.createElement("button", {
       type: "button",
-      onClick: () => setSelected(row),
+      onClick: () => handleAttachPhotoClick(row),
       className: `${button} bg-emerald-600 text-white whitespace-nowrap`
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-camera mr-2"
-    }), "Lampirkan Foto"), saved(row) > 0 && /*#__PURE__*/React.createElement("span", {
+    }), "Lampirkan Foto") : /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => handleAttachPhotoClick(row),
+      className: `${button} bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 whitespace-nowrap`,
+      title: "Lampirkan foto ditutup melewati jam 18.00 WIB (Buka 06.00 WIB)"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-lock mr-2 text-amber-600"
+    }), "Lampirkan Foto (Terkunci)"), saved(row) > 0 && /*#__PURE__*/React.createElement("span", {
       className: "text-emerald-700 font-bold"
     }, saved(row), " foto tersimpan"))))), !visible.length && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
       colSpan: 4,
@@ -613,6 +686,7 @@
     const [url, setUrl] = useState(''),
       [error, setError] = useState(''),
       [loading, setLoading] = useState(true);
+    const core = getCore();
     useEffect(() => {
       let active = true;
       const DB = getDB();
@@ -646,7 +720,6 @@
         active = false;
       };
     }, [item?.id, item?.photo_path]);
-    const core = getCore();
     return /*#__PURE__*/React.createElement(Modal, {
       title: `Bukti Foto · ${item?.customer_name || 'Nasabah'}`,
       onClose: onClose
@@ -750,9 +823,13 @@
     });
     const [pdfProgress, setPdfProgress] = useState(null),
       [pdfError, setPdfError] = useState('');
+    const [notifyScope, setNotifyScope] = useState('today');
+    const [isNotifyOpen, setIsNotifyOpen] = useState(true);
+    const [copiedCategory, setCopiedCategory] = useState('');
     const pdfController = useRef(null);
     const generation = useRef(0),
       mounted = useRef(true);
+    const core = getCore();
     const arrumCreditNos = useMemo(() => {
       const list = arrumExpData || typeof window !== 'undefined' && window.arrumCreditNos || [];
       if (list instanceof Set) return list;
@@ -790,7 +867,6 @@
         pdfController.current?.abort();
       };
     }, []);
-    const core = getCore();
     const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
     const visible = useMemo(() => {
       const activeFilters = {
@@ -805,6 +881,105 @@
     const countLar = useMemo(() => safeRows.filter(r => r && r.dataset === 'lar').length, [safeRows]);
     const countNpl = useMemo(() => safeRows.filter(r => r && r.dataset === 'npl').length, [safeRows]);
     const countArrumExp = useMemo(() => safeRows.filter(isRowArrumExp).length, [safeRows, arrumCreditNos]);
+    const todayDay = core?.localDay ? core.localDay(new Date()) : new Date().toISOString().slice(0, 10);
+    const pendingData = useMemo(() => {
+      if (!core || typeof core.getPendingOfficers !== 'function') return null;
+      return core.getPendingOfficers(safeRows, {
+        scope: notifyScope,
+        date: todayDay,
+        start: filters.start,
+        end: filters.end,
+        arrumCreditNos
+      });
+    }, [core, safeRows, notifyScope, todayDay, filters.start, filters.end, arrumCreditNos]);
+    const getScopeLabel = () => {
+      if (notifyScope === 'today') return `Hari Ini (${todayDay})`;
+      if (notifyScope === 'filtered') {
+        if (filters.start && filters.end) return `${filters.start} s/d ${filters.end}`;
+        if (filters.start) return `Mulai ${filters.start}`;
+        if (filters.end) return `Sampai ${filters.end}`;
+        return 'Sesuai Filter';
+      }
+      return 'Seluruh Riwayat';
+    };
+    const copyCategoryList = (catKey, catTitle, officers) => {
+      if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+      const count = officers.length;
+      const scopeLabel = getScopeLabel();
+      let text = `📢 *NOTIFIKASI PETUGAS BELUM ISI TINDAK LANJUT*\n`;
+      text += `📂 Kategori: *${catTitle}*\n`;
+      text += `📅 Periode: ${scopeLabel}\n`;
+      text += `⚠️ Jumlah Belum Mengisi: *${count} Petugas*\n\n`;
+      if (count > 0) {
+        text += `*Daftar Nama Petugas:*\n`;
+        officers.forEach((name, idx) => {
+          text += `${idx + 1}. ${name}\n`;
+        });
+        text += `\nMohon rekan-rekan petugas di atas untuk segera mengisi tindak lanjut. Terima kasih. 🙏`;
+      } else {
+        text += `✅ *Alhamdulillah, seluruh petugas pada kategori ${catTitle} sudah mengisi tindak lanjut.*`;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedCategory(catKey);
+        showToast?.(`Daftar petugas ${catTitle} disalin ke clipboard!`);
+        setTimeout(() => setCopiedCategory(''), 2500);
+      }).catch(() => {
+        showToast?.('Gagal menyalin ke clipboard.');
+      });
+    };
+    const copyAllCategoriesSummary = () => {
+      if (typeof navigator === 'undefined' || !navigator.clipboard || !pendingData) return;
+      const scopeLabel = getScopeLabel();
+      const catConfigs = [{
+        key: 'kol1',
+        title: 'KOL 1 (1–10 Hari)',
+        icon: '🔴'
+      }, {
+        key: 'lar',
+        title: 'LAR (11–30 Hari)',
+        icon: '🟠'
+      }, {
+        key: 'npl',
+        title: 'NPL (KOL 3–5)',
+        icon: '🔴'
+      }, {
+        key: 'arrumExp',
+        title: 'ARRUM EXPRES LOAN',
+        icon: '⚡'
+      }];
+      let text = `📢 *REKAP NOTIFIKASI PETUGAS BELUM ISI TINDAK LANJUT*\n`;
+      text += `📅 Periode: ${scopeLabel}\n`;
+      text += `📊 Total Belum Mengisi: *${pendingData.totalPending} dari ${pendingData.totalOfficers} Petugas*\n`;
+      text += `──────────────────────\n\n`;
+      catConfigs.forEach(({
+        key,
+        title,
+        icon
+      }) => {
+        const catData = pendingData.byCategory[key] || {
+          pendingOfficers: [],
+          pendingCount: 0,
+          totalOfficers: 0
+        };
+        text += `${icon} *${title}* (${catData.pendingCount} Belum / ${catData.totalOfficers} Petugas)\n`;
+        if (catData.pendingCount > 0) {
+          catData.pendingOfficers.forEach((name, idx) => {
+            text += `   ${idx + 1}. ${name}\n`;
+          });
+        } else {
+          text += `   ✅ Lengkap (Semua sudah isi)\n`;
+        }
+        text += `\n`;
+      });
+      text += `Mohon kerja sama rekan-rekan untuk segera menyelesaikan input tindak lanjut hari ini. Terima kasih. 🙏`;
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedCategory('all');
+        showToast?.('Rekap notifikasi seluruh kategori disalin ke clipboard!');
+        setTimeout(() => setCopiedCategory(''), 2500);
+      }).catch(() => {
+        showToast?.('Gagal menyalin ke clipboard.');
+      });
+    };
     const change = (name, value) => setFilters(previous => ({
       ...previous,
       [name]: value
@@ -863,7 +1038,7 @@
             if (mounted.current) setPdfProgress(progress);
           }
         });
-        if (mounted.current) showToast?.('Rekap PDF beserta seluruh foto selesai dibuat. Unduhan dimulai.');
+        if (mounted.current) showToast?.('Rekap PDF selesai dibuat. Unduhan dimulai.');
       } catch (error) {
         if (mounted.current && error.name !== 'AbortError') setPdfError(error.message);
       } finally {
@@ -949,7 +1124,293 @@
       className: "text-xs font-bold text-slate-500"
     }, label), /*#__PURE__*/React.createElement("p", {
       className: "text-2xl font-black text-emerald-700 mt-2"
-    }, value)))), /*#__PURE__*/React.createElement("div", {
+    }, value)))), pendingData && /*#__PURE__*/React.createElement("div", {
+      className: "bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap items-center justify-between gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: `w-10 h-10 rounded-2xl flex items-center justify-center text-lg ${pendingData.totalPending > 0 ? 'bg-rose-100 text-rose-600 border border-rose-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`
+    }, /*#__PURE__*/React.createElement("i", {
+      className: `fas ${pendingData.totalPending > 0 ? 'fa-bell' : 'fa-check-double'}`
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 flex-wrap"
+    }, /*#__PURE__*/React.createElement("h2", {
+      className: "text-base font-black text-slate-900"
+    }, "Notifikasi Petugas Belum Tindak Lanjut"), /*#__PURE__*/React.createElement("span", {
+      className: `px-2.5 py-0.5 rounded-full text-xs font-black ${pendingData.totalPending > 0 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}`
+    }, pendingData.totalPending > 0 ? `${pendingData.totalPending} Petugas Belum Isi` : 'Semua Petugas Selesai')), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-slate-500 mt-0.5"
+    }, "Daftar nama petugas yang belum mengisi tindak lanjut per kategori (", getScopeLabel(), ")."))), /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap items-center gap-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setNotifyScope('today'),
+      className: `px-3 py-1 rounded-lg font-bold transition ${notifyScope === 'today' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`
+    }, "Hari Ini"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setNotifyScope('filtered'),
+      className: `px-3 py-1 rounded-lg font-bold transition ${notifyScope === 'filtered' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`
+    }, "Sesuai Filter"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setNotifyScope('all'),
+      className: `px-3 py-1 rounded-lg font-bold transition ${notifyScope === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`
+    }, "Semua")), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: copyAllCategoriesSummary,
+      className: `${button} bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5`,
+      title: "Salin rekap notifikasi seluruh kategori untuk dibagikan ke WhatsApp"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: `fas ${copiedCategory === 'all' ? 'fa-check' : 'fa-copy'}`
+    }), /*#__PURE__*/React.createElement("span", null, copiedCategory === 'all' ? 'Tersalin!' : 'Salin Rekap Semua')), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setIsNotifyOpen(v => !v),
+      className: "p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition",
+      title: isNotifyOpen ? 'Ciutkan notifikasi' : 'Buka notifikasi'
+    }, /*#__PURE__*/React.createElement("i", {
+      className: `fas ${isNotifyOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`
+    })))), isNotifyOpen && /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5 pt-1"
+    }, (() => {
+      const catKey = 'kol1';
+      const catTitle = 'KOL 1 (1–10 Hari)';
+      const data = pendingData.byCategory[catKey] || {
+        pendingOfficers: [],
+        pendingCount: 0,
+        completedCount: 0,
+        totalOfficers: 0
+      };
+      const percent = data.totalOfficers > 0 ? Math.round(data.completedCount / data.totalOfficers * 100) : 0;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 flex flex-col justify-between"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between gap-2 pb-2 border-b border-amber-100"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center text-xs"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-triangle-exclamation"
+      })), /*#__PURE__*/React.createElement("span", {
+        className: "font-bold text-xs text-amber-950"
+      }, "KOL 1 (1\u201310 Hari)")), /*#__PURE__*/React.createElement("span", {
+        className: `px-2 py-0.5 rounded-full text-[11px] font-black ${data.pendingCount > 0 ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-emerald-100 text-emerald-800'}`
+      }, data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap')), /*#__PURE__*/React.createElement("div", {
+        className: "mt-2.5 mb-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex justify-between text-[11px] font-semibold text-slate-600 mb-1"
+      }, /*#__PURE__*/React.createElement("span", null, "Progres Pengisian"), /*#__PURE__*/React.createElement("span", null, data.completedCount, "/", data.totalOfficers, " (", percent, "%)")), /*#__PURE__*/React.createElement("div", {
+        className: "w-full bg-amber-100/60 rounded-full h-1.5 overflow-hidden"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bg-amber-600 h-1.5 rounded-full transition-all duration-300",
+        style: {
+          width: `${percent}%`
+        }
+      }))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-3"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5"
+      }, data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'), data.pendingCount > 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "max-h-36 overflow-y-auto pr-1 space-y-1"
+      }, data.pendingOfficers.map((name, i) => /*#__PURE__*/React.createElement("div", {
+        key: name,
+        className: "flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-amber-100/80"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0"
+      }, i + 1), /*#__PURE__*/React.createElement("span", {
+        className: "truncate"
+      }, name)))) : /*#__PURE__*/React.createElement("div", {
+        className: "p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-check-circle text-emerald-600 mr-1.5"
+      }), "Semua petugas KOL 1 sudah mengisi (", data.totalOfficers, " orang)."))), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: () => copyCategoryList(catKey, catTitle, data.pendingOfficers),
+        className: "mt-3 w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: `fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`
+      }), /*#__PURE__*/React.createElement("span", null, copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar KOL 1')));
+    })(), (() => {
+      const catKey = 'lar';
+      const catTitle = 'LAR (11–30 Hari)';
+      const data = pendingData.byCategory[catKey] || {
+        pendingOfficers: [],
+        pendingCount: 0,
+        completedCount: 0,
+        totalOfficers: 0
+      };
+      const percent = data.totalOfficers > 0 ? Math.round(data.completedCount / data.totalOfficers * 100) : 0;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "bg-orange-50/50 border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between gap-2 pb-2 border-b border-orange-100"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-7 h-7 rounded-lg bg-orange-500/10 text-orange-700 flex items-center justify-center text-xs"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-clock-rotate-left"
+      })), /*#__PURE__*/React.createElement("span", {
+        className: "font-bold text-xs text-orange-950"
+      }, "LAR (11\u201330 Hari)")), /*#__PURE__*/React.createElement("span", {
+        className: `px-2 py-0.5 rounded-full text-[11px] font-black ${data.pendingCount > 0 ? 'bg-orange-100 text-orange-900 border border-orange-200' : 'bg-emerald-100 text-emerald-800'}`
+      }, data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap')), /*#__PURE__*/React.createElement("div", {
+        className: "mt-2.5 mb-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex justify-between text-[11px] font-semibold text-slate-600 mb-1"
+      }, /*#__PURE__*/React.createElement("span", null, "Progres Pengisian"), /*#__PURE__*/React.createElement("span", null, data.completedCount, "/", data.totalOfficers, " (", percent, "%)")), /*#__PURE__*/React.createElement("div", {
+        className: "w-full bg-orange-100/60 rounded-full h-1.5 overflow-hidden"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bg-orange-600 h-1.5 rounded-full transition-all duration-300",
+        style: {
+          width: `${percent}%`
+        }
+      }))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-3"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5"
+      }, data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'), data.pendingCount > 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "max-h-36 overflow-y-auto pr-1 space-y-1"
+      }, data.pendingOfficers.map((name, i) => /*#__PURE__*/React.createElement("div", {
+        key: name,
+        className: "flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-orange-100/80"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "w-4 h-4 rounded-full bg-orange-100 text-orange-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0"
+      }, i + 1), /*#__PURE__*/React.createElement("span", {
+        className: "truncate"
+      }, name)))) : /*#__PURE__*/React.createElement("div", {
+        className: "p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-check-circle text-emerald-600 mr-1.5"
+      }), "Semua petugas LAR sudah mengisi (", data.totalOfficers, " orang)."))), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: () => copyCategoryList(catKey, catTitle, data.pendingOfficers),
+        className: "mt-3 w-full py-1.5 px-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: `fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`
+      }), /*#__PURE__*/React.createElement("span", null, copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar LAR')));
+    })(), (() => {
+      const catKey = 'npl';
+      const catTitle = 'NPL (KOL 3–5)';
+      const data = pendingData.byCategory[catKey] || {
+        pendingOfficers: [],
+        pendingCount: 0,
+        completedCount: 0,
+        totalOfficers: 0
+      };
+      const percent = data.totalOfficers > 0 ? Math.round(data.completedCount / data.totalOfficers * 100) : 0;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "bg-rose-50/50 border border-rose-200/80 rounded-2xl p-4 flex flex-col justify-between"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between gap-2 pb-2 border-b border-rose-100"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-7 h-7 rounded-lg bg-rose-500/10 text-rose-700 flex items-center justify-center text-xs"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-circle-exclamation"
+      })), /*#__PURE__*/React.createElement("span", {
+        className: "font-bold text-xs text-rose-950"
+      }, "NPL (KOL 3\u20135)")), /*#__PURE__*/React.createElement("span", {
+        className: `px-2 py-0.5 rounded-full text-[11px] font-black ${data.pendingCount > 0 ? 'bg-rose-100 text-rose-900 border border-rose-200' : 'bg-emerald-100 text-emerald-800'}`
+      }, data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap')), /*#__PURE__*/React.createElement("div", {
+        className: "mt-2.5 mb-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex justify-between text-[11px] font-semibold text-slate-600 mb-1"
+      }, /*#__PURE__*/React.createElement("span", null, "Progres Pengisian"), /*#__PURE__*/React.createElement("span", null, data.completedCount, "/", data.totalOfficers, " (", percent, "%)")), /*#__PURE__*/React.createElement("div", {
+        className: "w-full bg-rose-100/60 rounded-full h-1.5 overflow-hidden"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bg-rose-600 h-1.5 rounded-full transition-all duration-300",
+        style: {
+          width: `${percent}%`
+        }
+      }))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-3"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5"
+      }, data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'), data.pendingCount > 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "max-h-36 overflow-y-auto pr-1 space-y-1"
+      }, data.pendingOfficers.map((name, i) => /*#__PURE__*/React.createElement("div", {
+        key: name,
+        className: "flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-rose-100/80"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "w-4 h-4 rounded-full bg-rose-100 text-rose-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0"
+      }, i + 1), /*#__PURE__*/React.createElement("span", {
+        className: "truncate"
+      }, name)))) : /*#__PURE__*/React.createElement("div", {
+        className: "p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-check-circle text-emerald-600 mr-1.5"
+      }), "Semua petugas NPL sudah mengisi (", data.totalOfficers, " orang)."))), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: () => copyCategoryList(catKey, catTitle, data.pendingOfficers),
+        className: "mt-3 w-full py-1.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: `fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`
+      }), /*#__PURE__*/React.createElement("span", null, copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar NPL')));
+    })(), (() => {
+      const catKey = 'arrumExp';
+      const catTitle = 'Arrum Exspres Loan';
+      const data = pendingData.byCategory[catKey] || {
+        pendingOfficers: [],
+        pendingCount: 0,
+        completedCount: 0,
+        totalOfficers: 0
+      };
+      const percent = data.totalOfficers > 0 ? Math.round(data.completedCount / data.totalOfficers * 100) : 0;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "bg-indigo-50/50 border border-indigo-200/80 rounded-2xl p-4 flex flex-col justify-between"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between gap-2 pb-2 border-b border-indigo-100"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-700 flex items-center justify-center text-xs"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-bolt-lightning"
+      })), /*#__PURE__*/React.createElement("span", {
+        className: "font-bold text-xs text-indigo-950"
+      }, "Arrum Exspres Loan")), /*#__PURE__*/React.createElement("span", {
+        className: `px-2 py-0.5 rounded-full text-[11px] font-black ${data.pendingCount > 0 ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' : 'bg-emerald-100 text-emerald-800'}`
+      }, data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap')), /*#__PURE__*/React.createElement("div", {
+        className: "mt-2.5 mb-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex justify-between text-[11px] font-semibold text-slate-600 mb-1"
+      }, /*#__PURE__*/React.createElement("span", null, "Progres Pengisian"), /*#__PURE__*/React.createElement("span", null, data.completedCount, "/", data.totalOfficers, " (", percent, "%)")), /*#__PURE__*/React.createElement("div", {
+        className: "w-full bg-indigo-100/60 rounded-full h-1.5 overflow-hidden"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bg-indigo-600 h-1.5 rounded-full transition-all duration-300",
+        style: {
+          width: `${percent}%`
+        }
+      }))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-3"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5"
+      }, data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'), data.pendingCount > 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "max-h-36 overflow-y-auto pr-1 space-y-1"
+      }, data.pendingOfficers.map((name, i) => /*#__PURE__*/React.createElement("div", {
+        key: name,
+        className: "flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-indigo-100/80"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0"
+      }, i + 1), /*#__PURE__*/React.createElement("span", {
+        className: "truncate"
+      }, name)))) : /*#__PURE__*/React.createElement("div", {
+        className: "p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-check-circle text-emerald-600 mr-1.5"
+      }), "Semua petugas Arrum Exspres sudah mengisi (", data.totalOfficers, " orang)."))), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: () => copyCategoryList(catKey, catTitle, data.pendingOfficers),
+        className: "mt-3 w-full py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: `fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`
+      }), /*#__PURE__*/React.createElement("span", null, copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar Arrum Exspres')));
+    })())), /*#__PURE__*/React.createElement("div", {
       className: "bg-white p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center gap-1.5"
@@ -1116,8 +1577,11 @@
     }, /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: () => setPhoto(row),
-      className: `${button} bg-emerald-50 text-emerald-800 border border-emerald-200`
-    }, "Lihat Foto"), /*#__PURE__*/React.createElement("button", {
+      className: `${button} bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200`,
+      title: "Lihat Bukti Foto"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-image mr-1.5 text-emerald-600"
+    }), " Lihat Foto"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: () => {
         setDeleteError('');

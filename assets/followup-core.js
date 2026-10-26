@@ -54,6 +54,133 @@
     function formatTime(value) {
         return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'medium', hourCycle: 'h23' }).format(new Date(value)) + ' WIB';
     }
+    function getWibHour(value = new Date()) {
+        const d = value instanceof Date ? value : new Date(value);
+        if (isNaN(d.getTime())) return 0;
+        try {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Jakarta',
+                hour: 'numeric',
+                hourCycle: 'h23'
+            }).formatToParts(d);
+            const hourPart = parts.find(p => p.type === 'hour');
+            if (hourPart) return parseInt(hourPart.value, 10);
+        } catch (_) {}
+        const utcMs = d.getTime() + (d.getTimezoneOffset() * 60000);
+        return new Date(utcMs + (7 * 3600000)).getUTCHours();
+    }
+    function isPhotoAccessAllowed(value = new Date()) {
+        const hour = getWibHour(value);
+        // Akses buka foto aktif dari jam 06.00 WIB s/d sebelum jam 18.00 WIB (06:00 - 17:59:59).
+        // Melewati jam 18.00 WIB (18:00 - 05:59:59) akses foto dikunci dan kembali dibuka jam 06.00 pagi.
+        return hour >= 6 && hour < 18;
+    }
+    function getPhotoAccessStatus(value = new Date()) {
+        const allowed = isPhotoAccessAllowed(value);
+        const hour = getWibHour(value);
+        return {
+            allowed,
+            currentHourWib: hour,
+            operatingHoursText: '06.00 – 18.00 WIB',
+            message: allowed
+                ? 'Lampiran foto dapat diakses (Jam Operasional 06.00 – 18.00 WIB).'
+                : 'Lampiran foto tindak lanjut tidak dapat dibuka melewati jam 18.00 WIB dan kembali bisa dibuka jam 06.00 WIB.'
+        };
+    }
+    function getPendingOfficers(rows, options = {}) {
+        const allOfficers = getOfficers();
+        const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
+        const scope = options.scope || 'today';
+        const targetDate = options.date || localDay(new Date());
+        const arrumCreditNos = options.arrumCreditNos instanceof Set
+            ? options.arrumCreditNos
+            : new Set(Array.isArray(options.arrumCreditNos) ? options.arrumCreditNos : []);
+
+        let scopedRows = safeRows;
+        if (scope === 'today') {
+            scopedRows = safeRows.filter(r => {
+                if (!r || !r.captured_at) return false;
+                try {
+                    return localDay(r.captured_at) === targetDate;
+                } catch (_) {
+                    return false;
+                }
+            });
+        } else if (scope === 'filtered') {
+            const start = options.start || '';
+            const end = options.end || '';
+            scopedRows = safeRows.filter(r => {
+                if (!r || !r.captured_at) return false;
+                try {
+                    const day = localDay(r.captured_at);
+                    if (start && day < start) return false;
+                    if (end && day > end) return false;
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            });
+        }
+
+        const isArrum = (r) => {
+            if (!r) return false;
+            const ds = String(r.dataset || '').toLowerCase();
+            if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+            if (arrumCreditNos.has(String(r.credit_no || '').trim())) return true;
+            if (/ARRUM\s*EXPR?ES\s*LOAN/i.test(r.notes || '') || /ARRUM\s*EXPR?ES\s*LOAN/i.test(r.product || '')) return true;
+            return false;
+        };
+
+        const categories = ['kol1', 'lar', 'npl', 'arrumExp'];
+        const result = {
+            scope,
+            targetDate,
+            byCategory: {}
+        };
+
+        categories.forEach(cat => {
+            const catRows = scopedRows.filter(r => {
+                if (cat === 'arrumExp') return isArrum(r);
+                if (isArrum(r)) return false;
+                return String(r.dataset || '').toLowerCase() === cat;
+            });
+
+            const submittedSet = new Set(
+                catRows.map(r => normalizeOfficerName(officerName(r))).filter(Boolean)
+            );
+
+            const list = Array.isArray(allOfficers[cat]) ? allOfficers[cat] : [];
+            const completed = [];
+            const pending = [];
+
+            list.forEach(name => {
+                const norm = normalizeOfficerName(name);
+                if (!norm) return;
+                if (submittedSet.has(norm)) {
+                    completed.push(norm);
+                } else {
+                    pending.push(norm);
+                }
+            });
+
+            const catSummary = {
+                totalOfficers: list.length,
+                completedCount: completed.length,
+                pendingCount: pending.length,
+                completedOfficers: completed,
+                pendingOfficers: pending,
+                hasPending: pending.length > 0
+            };
+            result.byCategory[cat] = catSummary;
+            result[cat] = catSummary;
+        });
+
+        result.totalPending = Object.values(result.byCategory).reduce((sum, c) => sum + c.pendingCount, 0);
+        result.totalOfficers = Object.values(result.byCategory).reduce((sum, c) => sum + c.totalOfficers, 0);
+        result.totalCompleted = Object.values(result.byCategory).reduce((sum, c) => sum + c.completedCount, 0);
+
+        return result;
+    }
     function mapUrl(latitude, longitude) {
         return `https://www.openstreetmap.org/?mlat=${Number(latitude).toFixed(6)}&mlon=${Number(longitude).toFixed(6)}#map=18/${Number(latitude).toFixed(6)}/${Number(longitude).toFixed(6)}`;
     }
@@ -494,6 +621,7 @@
         cleanFollowupText, validateFollowupDetails, officerName, officerIdentity,
         customer, localDay, formatTime, mapUrl, googleMapUrl, csvCell, recapCsv, filterRecap,
         getLocation, stampPhoto,
-        getOfficers, saveOfficers, getOfficersForDataset, parseOfficersExcel, generateOfficersTemplate
+        getOfficers, saveOfficers, getOfficersForDataset, parseOfficersExcel, generateOfficersTemplate,
+        getWibHour, isPhotoAccessAllowed, getPhotoAccessStatus, getPendingOfficers
     });
 }());

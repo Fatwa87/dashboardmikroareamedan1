@@ -2184,6 +2184,9 @@
                                         if (matchingRows.length === 0) {
                                             return showToast(`Tidak ada data nasabah untuk cabang "${selectedCabang}".`, 'error');
                                         }
+                                        if (window.FollowupCore && typeof window.FollowupCore.isPhotoAccessAllowed === 'function' && !window.FollowupCore.isPhotoAccessAllowed()) {
+                                            showToast('Pemberitahuan: Lampirkan foto tindak lanjut ditutup melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.', 'warning');
+                                        }
                                         setFollowupOpen(true);
                                     }}
                                     className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition flex items-center font-bold text-xs shadow-md"

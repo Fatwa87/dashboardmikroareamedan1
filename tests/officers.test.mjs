@@ -350,3 +350,138 @@ test('FollowupCore filterRecap filters by dataset category (kol1, lar, npl) and 
     assert.ok(arrumOfficers.length > 0);
 });
 
+test('FollowupCore isPhotoAccessAllowed and getPhotoAccessStatus enforce 06.00 to 18.00 WIB window', () => {
+    const {core} = setupCore();
+
+    // 05:59:59 WIB = 22:59:59 UTC previous day -> Locked
+    const before6am = new Date('2026-10-26T22:59:59.000Z');
+    assert.equal(core.isPhotoAccessAllowed(before6am), false);
+    const statusBefore = core.getPhotoAccessStatus(before6am);
+    assert.equal(statusBefore.allowed, false);
+    assert.equal(statusBefore.currentHourWib, 5);
+    assert.ok(statusBefore.message.includes('18.00 WIB'));
+
+    // 06:00:00 WIB = 23:00:00 UTC previous day -> Open
+    const at6am = new Date('2026-10-26T23:00:00.000Z');
+    assert.equal(core.isPhotoAccessAllowed(at6am), true);
+    const statusAt6 = core.getPhotoAccessStatus(at6am);
+    assert.equal(statusAt6.allowed, true);
+    assert.equal(statusAt6.currentHourWib, 6);
+
+    // 12:00:00 WIB = 05:00:00 UTC -> Open
+    const noon = new Date('2026-10-27T05:00:00.000Z');
+    assert.equal(core.isPhotoAccessAllowed(noon), true);
+    assert.equal(core.getWibHour(noon), 12);
+
+    // 17:59:59 WIB = 10:59:59 UTC -> Open
+    const before6pm = new Date('2026-10-27T10:59:59.000Z');
+    assert.equal(core.isPhotoAccessAllowed(before6pm), true);
+    assert.equal(core.getWibHour(before6pm), 17);
+
+    // 18:00:00 WIB = 11:00:00 UTC -> Locked
+    const at6pm = new Date('2026-10-27T11:00:00.000Z');
+    assert.equal(core.isPhotoAccessAllowed(at6pm), false);
+    const statusAt6pm = core.getPhotoAccessStatus(at6pm);
+    assert.equal(statusAt6pm.allowed, false);
+    assert.equal(statusAt6pm.currentHourWib, 18);
+
+    // 22:00:00 WIB = 15:00:00 UTC -> Locked
+    const night = new Date('2026-10-27T15:00:00.000Z');
+    assert.equal(core.isPhotoAccessAllowed(night), false);
+    assert.equal(core.getWibHour(night), 22);
+});
+
+test('FollowupCore getPendingOfficers groups unsubmitted officers per category (kol1, lar, npl, arrumExp)', () => {
+    const {core} = setupCore();
+
+    // Set custom officers for deterministic testing
+    core.saveOfficers({
+        kol1: ['TONI PRIADI', 'SUJARWO', 'JIMMY RAFAEL K'],
+        lar: ['FAHRUL ISMAIL', 'AZRIL ALFIS'],
+        npl: ['AGUS SETIAWAN', 'HENDRA WIJAYA'],
+        arrumExp: ['M RIFAL KAUTSAR', 'NUR SALIM']
+    });
+
+    const sampleRows = [
+        // TONI PRIADI submitted kol1 today (2026-10-26 UTC morning = WIB day 2026-10-26)
+        {
+            id: '1',
+            dataset: 'kol1',
+            branch: 'MEDAN',
+            officer_name: 'TONI PRIADI',
+            credit_no: '101',
+            captured_at: '2026-10-26T03:00:00Z'
+        },
+        // FAHRUL ISMAIL submitted lar today
+        {
+            id: '2',
+            dataset: 'lar',
+            branch: 'MEDAN',
+            officer_name: 'FAHRUL ISMAIL',
+            credit_no: '201',
+            captured_at: '2026-10-26T04:00:00Z'
+        },
+        // M RIFAL KAUTSAR submitted arrumExp today
+        {
+            id: '3',
+            dataset: 'arrumExp',
+            branch: 'MEDAN',
+            officer_name: 'M RIFAL KAUTSAR',
+            credit_no: '301',
+            captured_at: '2026-10-26T05:00:00Z'
+        },
+        // AGUS SETIAWAN submitted npl on yesterday (2026-10-25)
+        {
+            id: '4',
+            dataset: 'npl',
+            branch: 'BINJAI',
+            officer_name: 'AGUS SETIAWAN',
+            credit_no: '401',
+            captured_at: '2026-10-25T03:00:00Z'
+        }
+    ];
+
+    // Test scope: today (targetDate: 2026-10-26)
+    const todayResult = toHost(core.getPendingOfficers(sampleRows, {
+        scope: 'today',
+        date: '2026-10-26'
+    }));
+
+    // KOL 1: 3 total, 1 completed (TONI PRIADI), 2 pending (SUJARWO, JIMMY RAFAEL K)
+    assert.equal(todayResult.byCategory.kol1.totalOfficers, 3);
+    assert.equal(todayResult.byCategory.kol1.completedCount, 1);
+    assert.equal(todayResult.byCategory.kol1.pendingCount, 2);
+    assert.deepEqual(todayResult.byCategory.kol1.completedOfficers, ['TONI PRIADI']);
+    assert.deepEqual(todayResult.byCategory.kol1.pendingOfficers, ['SUJARWO', 'JIMMY RAFAEL K']);
+
+    // LAR: 2 total, 1 completed (FAHRUL ISMAIL), 1 pending (AZRIL ALFIS)
+    assert.equal(todayResult.byCategory.lar.totalOfficers, 2);
+    assert.equal(todayResult.byCategory.lar.completedCount, 1);
+    assert.equal(todayResult.byCategory.lar.pendingCount, 1);
+    assert.deepEqual(todayResult.byCategory.lar.pendingOfficers, ['AZRIL ALFIS']);
+
+    // NPL: 2 total, 0 completed today, 2 pending (AGUS SETIAWAN, HENDRA WIJAYA)
+    assert.equal(todayResult.byCategory.npl.totalOfficers, 2);
+    assert.equal(todayResult.byCategory.npl.completedCount, 0);
+    assert.equal(todayResult.byCategory.npl.pendingCount, 2);
+    assert.deepEqual(todayResult.byCategory.npl.pendingOfficers, ['AGUS SETIAWAN', 'HENDRA WIJAYA']);
+
+    // Arrum Exspres Loan: 2 total, 1 completed (M RIFAL KAUTSAR), 1 pending (NUR SALIM)
+    assert.equal(todayResult.byCategory.arrumExp.totalOfficers, 2);
+    assert.equal(todayResult.byCategory.arrumExp.completedCount, 1);
+    assert.equal(todayResult.byCategory.arrumExp.pendingCount, 1);
+    assert.deepEqual(todayResult.byCategory.arrumExp.pendingOfficers, ['NUR SALIM']);
+
+    // Summary totals
+    assert.equal(todayResult.totalOfficers, 9);
+    assert.equal(todayResult.totalCompleted, 3);
+    assert.equal(todayResult.totalPending, 6);
+
+    // Test scope: all (all history included, so AGUS SETIAWAN's yesterday entry counts as completed)
+    const allResult = toHost(core.getPendingOfficers(sampleRows, { scope: 'all' }));
+    assert.equal(allResult.byCategory.npl.completedCount, 1);
+    assert.equal(allResult.byCategory.npl.pendingCount, 1);
+    assert.deepEqual(allResult.byCategory.npl.pendingOfficers, ['HENDRA WIJAYA']);
+});
+
+

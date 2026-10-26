@@ -157,8 +157,19 @@
             return()=>{cancelled=true;stop();};
         },[facing,!!capture]);
 
+        const isPhotoAllowed = (getCore() && typeof getCore().isPhotoAccessAllowed === 'function')
+            ? getCore().isPhotoAccessAllowed()
+            : (() => {
+                const hour = new Date().getHours();
+                return hour >= 6 && hour < 18;
+            })();
+
         const takePhoto=async()=>{
             const core = getCore();
+            if (!isPhotoAllowed) {
+                setError('Lampiran foto tindak lanjut tidak dapat diambil melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.');
+                return;
+            }
             const cleanName=(core && typeof core.cleanFollowupText === 'function') ? core.cleanFollowupText(officerName) : String(officerName || '').trim();
             if(!cleanName){
                 setError('Pilih nama petugas terlebih dahulu sebelum mengambil foto.');
@@ -193,6 +204,10 @@
             finally{if(mounted.current)setBusy(false);}
         };
         const save=async()=>{
+            if (!isPhotoAllowed) {
+                setError('Lampiran foto tindak lanjut tidak dapat disimpan melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.');
+                return;
+            }
             let details;
             const core = getCore();
             try{details=core.validateFollowupDetails(notes,officerName);}catch(error){setError(error.message);return;}
@@ -221,6 +236,13 @@
                         {String(dataset || '').toUpperCase()}
                     </span>
                 </div>
+
+                {!isPhotoAllowed && (
+                    <div className="p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl text-xs font-semibold flex items-center gap-2.5">
+                        <i className="fas fa-lock text-amber-600 text-sm"></i>
+                        <span>Lampiran foto ditutup melewati jam 18.00 WIB dan kembali dibuka jam 06.00 WIB pagi.</span>
+                    </div>
+                )}
 
                 {!capture && (
                     <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
@@ -284,7 +306,7 @@
                     </div>
                     <div className="flex flex-wrap gap-2 justify-between items-center">
                         <button type="button" onClick={()=>setFacing(current=>current==='environment'?'user':'environment')} disabled={busy} className={`${button} bg-slate-100`}>Ganti Kamera</button>
-                        <button type="button" onClick={takePhoto} disabled={busy||!ready||!cleanOfficer} className={`${button} bg-emerald-600 text-white flex items-center shadow-md`}>
+                        <button type="button" onClick={takePhoto} disabled={busy||!ready||!cleanOfficer||!isPhotoAllowed} className={`${button} bg-emerald-600 text-white flex items-center shadow-md`}>
                             <i className="fas fa-camera mr-2"></i>Ambil Foto Bukti
                         </button>
                     </div>
@@ -305,7 +327,7 @@
                     </label>
                     <div className="flex flex-wrap gap-2 justify-end">
                         <button type="button" disabled={busy} onClick={()=>{raw.current=null;setCapture(null);setError('');}} className={`${button} bg-slate-100`}>Foto Ulang</button>
-                        <button type="button" disabled={busy||!cleanNotes||!cleanOfficer} onClick={save} className={`${button} bg-emerald-600 text-white`}><i className="fas fa-cloud-arrow-up mr-2"></i>{busy?'Menyimpan Bukti...':'Simpan Tindak Lanjut'}</button>
+                        <button type="button" disabled={busy||!cleanNotes||!cleanOfficer||!isPhotoAllowed} onClick={save} className={`${button} bg-emerald-600 text-white`}><i className="fas fa-cloud-arrow-up mr-2"></i>{busy?'Menyimpan Bukti...':'Simpan Tindak Lanjut'}</button>
                     </div>
                 </>}
             </div>
@@ -314,6 +336,7 @@
 
     function FollowupListDialog({rows,branch,dataset,currentUser,onClose,showToast}) {
         const [search,setSearch]=useState(''),[selected,setSelected]=useState(null),[history,setHistory]=useState([]),[historyError,setHistoryError]=useState('');
+        const [lockedModalOpen,setLockedModalOpen]=useState(false);
         useEffect(()=>{
             let active=true;
             const DB = getDB();
@@ -328,6 +351,13 @@
         },[]);
 
         const core = getCore();
+        const isPhotoAllowed = (core && typeof core.isPhotoAccessAllowed === 'function')
+            ? core.isPhotoAccessAllowed()
+            : (() => {
+                const hour = new Date().getHours();
+                return hour >= 6 && hour < 18;
+            })();
+
         const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
         const customerFn = (core && typeof core.customer === 'function') ? core.customer : (row => ({
             sourceId: row?._id || null,
@@ -359,12 +389,50 @@
 
         const datasetLabel = getLabel(dataset);
 
+        const handleAttachPhotoClick = (row) => {
+            if (!isPhotoAllowed) {
+                setLockedModalOpen(true);
+                return;
+            }
+            setSelected(row);
+        };
+
         if(selected)return <CameraCapture record={selected} dataset={dataset} currentUser={currentUser} onBack={()=>setSelected(null)} onSaved={result=>{
             setHistory(previous=>[result,...(Array.isArray(previous)?previous:[]).filter(item=>item && item.id!==result.id)]);setSelected(null);showToast?.('Foto tindak lanjut tersimpan dan masuk rekap admin.');
         }} />;
 
         return <Modal title={`Tindak Lanjut · ${datasetLabel}`} onClose={onClose} wide>
             <div className="space-y-4">
+                {lockedModalOpen && (
+                    <Modal title="Lampirkan Foto Ditutup" onClose={() => setLockedModalOpen(false)}>
+                        <div className="space-y-4 text-center py-2">
+                            <div className="w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl border border-amber-200">
+                                <i className="fas fa-lock"></i>
+                            </div>
+                            <h3 className="text-base font-black text-slate-900">Waktu Pengisian Tindak Lanjut Telah Berakhir</h3>
+                            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                                Fitur <strong>Lampirkan Foto</strong> saat mau tindak lanjut untuk kategori <strong>{datasetLabel}</strong> tidak dapat dilakukan melewati jam 18.00 WIB.
+                            </p>
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-semibold text-amber-900 inline-flex items-center gap-2">
+                                <i className="fas fa-clock text-amber-600"></i>
+                                Jam Operasional Lampirkan Foto: <strong>06.00 – 18.00 WIB</strong>
+                            </div>
+                            <p className="text-xs text-slate-500 max-w-md mx-auto">
+                                Akses untuk melampirkan foto tindak lanjut akan kembali dibuka besok pagi pada pukul <strong>06.00 WIB</strong>. Rekap tindak lanjut tetap dapat dilihat kapan pun.
+                            </p>
+                            <div className="pt-2 flex justify-center">
+                                <button
+                                    type="button"
+                                    onClick={() => setLockedModalOpen(false)}
+                                    className={`${button} bg-slate-900 text-white px-6`}
+                                >
+                                    Saya Mengerti
+                                </button>
+                            </div>
+                        </div>
+                    </Modal>
+                )}
+
                 <div className="flex flex-wrap gap-3 justify-between items-center">
                     <div>
                         <p className="text-sm font-bold text-emerald-800">{branch} <span className="font-normal text-slate-500">· {safeRows.length} nasabah</span></p>
@@ -372,13 +440,44 @@
                     </div>
                     <input aria-label="Cari nasabah tindak lanjut" className={`${field} sm:max-w-sm`} placeholder="Cari CIF, no kredit, atau nama nasabah" value={search} onChange={event=>setSearch(event.target.value)} />
                 </div>
+
+                {!isPhotoAllowed && (
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 text-sm border border-amber-200">
+                            <i className="fas fa-clock"></i>
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                                <i className="fas fa-lock text-amber-600"></i>
+                                Lampirkan Foto Ditutup (Melewati Jam 18.00 WIB)
+                            </p>
+                            <p className="mt-0.5 text-amber-800 leading-relaxed">
+                                Sesuai ketentuan, pengambilan dan lampiran foto saat mau tindak lanjut untuk kategori <strong>{datasetLabel}</strong> tidak dapat dilakukan melewati jam 18.00 WIB dan kembali bisa dibuka pukul 06.00 WIB pagi.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {historyError&&<p role="alert" className="text-xs text-amber-800 bg-amber-50 p-3 rounded-xl">Riwayat belum dapat dimuat: {historyError}</p>}
                 <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-[56vh]">
                     <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 text-slate-500 sticky top-0"><tr>{['CIF','No Kredit','Nama Nasabah','Foto Tindak Lanjut'].map(label=><th className="p-3 whitespace-nowrap" key={label}>{label}</th>)}</tr></thead>
                         <tbody className="divide-y divide-slate-100">{visible.map((row,index)=><tr key={`${row.sourceId||row.creditNo}:${index}`}>
                             <td className="p-3 font-mono whitespace-nowrap">{row.cif||'—'}</td><td className="p-3 font-mono whitespace-nowrap">{row.creditNo}</td><td className="p-3 font-bold text-slate-800">{row.name}</td>
-                            <td className="p-3"><div className="flex flex-wrap gap-2 items-center"><button type="button" onClick={()=>setSelected(row)} className={`${button} bg-emerald-600 text-white whitespace-nowrap`}><i className="fas fa-camera mr-2"></i>Lampirkan Foto</button>{saved(row)>0&&<span className="text-emerald-700 font-bold">{saved(row)} foto tersimpan</span>}</div></td>
+                            <td className="p-3">
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    {isPhotoAllowed ? (
+                                        <button type="button" onClick={()=>handleAttachPhotoClick(row)} className={`${button} bg-emerald-600 text-white whitespace-nowrap`}>
+                                            <i className="fas fa-camera mr-2"></i>Lampirkan Foto
+                                        </button>
+                                    ) : (
+                                        <button type="button" onClick={()=>handleAttachPhotoClick(row)} className={`${button} bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 whitespace-nowrap`} title="Lampirkan foto ditutup melewati jam 18.00 WIB (Buka 06.00 WIB)">
+                                            <i className="fas fa-lock mr-2 text-amber-600"></i>Lampirkan Foto (Terkunci)
+                                        </button>
+                                    )}
+                                    {saved(row)>0&&<span className="text-emerald-700 font-bold">{saved(row)} foto tersimpan</span>}
+                                </div>
+                            </td>
                         </tr>)}{!visible.length&&<tr><td colSpan={4} className="p-8 text-center text-slate-500">Tidak ada nasabah sesuai pencarian.</td></tr>}</tbody>
                     </table>
                 </div>
@@ -389,6 +488,8 @@
 
     function PhotoDialog({item,onClose}) {
         const [url,setUrl]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(true);
+        const core = getCore();
+
         useEffect(()=>{
             let active=true;
             const DB = getDB();
@@ -423,7 +524,6 @@
             return () => { active = false; };
         }, [item?.id, item?.photo_path]);
 
-        const core = getCore();
         return <Modal title={`Bukti Foto · ${item?.customer_name || 'Nasabah'}`} onClose={onClose}>
             <div className="space-y-4">
                 <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-sm flex items-center justify-center min-h-[240px] max-h-[60vh]">
@@ -510,8 +610,13 @@
         const [deleteTarget,setDeleteTarget]=useState(null),[deleting,setDeleting]=useState(false),[deleteError,setDeleteError]=useState('');
         const [filters,setFilters]=useState({branch:'',dataset:'',officer:'',start:'',end:'',search:''});
         const [pdfProgress,setPdfProgress]=useState(null),[pdfError,setPdfError]=useState('');
+        const [notifyScope,setNotifyScope]=useState('today');
+        const [isNotifyOpen,setIsNotifyOpen]=useState(true);
+        const [copiedCategory,setCopiedCategory]=useState('');
         const pdfController=useRef(null);
         const generation=useRef(0),mounted=useRef(true);
+
+        const core = getCore();
 
         const arrumCreditNos = useMemo(() => {
             const list = arrumExpData || (typeof window !== 'undefined' && window.arrumCreditNos) || [];
@@ -541,7 +646,6 @@
         };
         useEffect(()=>{mounted.current=true;load();return()=>{mounted.current=false;generation.current++;pdfController.current?.abort();};},[]);
 
-        const core = getCore();
         const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
         const visible=useMemo(()=>{
             const activeFilters = { ...filters, arrumCreditNos };
@@ -553,6 +657,92 @@
         const countLar=useMemo(()=>safeRows.filter(r=>r && r.dataset==='lar').length,[safeRows]);
         const countNpl=useMemo(()=>safeRows.filter(r=>r && r.dataset==='npl').length,[safeRows]);
         const countArrumExp=useMemo(()=>safeRows.filter(isRowArrumExp).length,[safeRows,arrumCreditNos]);
+
+        const todayDay = core?.localDay ? core.localDay(new Date()) : new Date().toISOString().slice(0, 10);
+        const pendingData = useMemo(() => {
+            if (!core || typeof core.getPendingOfficers !== 'function') return null;
+            return core.getPendingOfficers(safeRows, {
+                scope: notifyScope,
+                date: todayDay,
+                start: filters.start,
+                end: filters.end,
+                arrumCreditNos
+            });
+        }, [core, safeRows, notifyScope, todayDay, filters.start, filters.end, arrumCreditNos]);
+
+        const getScopeLabel = () => {
+            if (notifyScope === 'today') return `Hari Ini (${todayDay})`;
+            if (notifyScope === 'filtered') {
+                if (filters.start && filters.end) return `${filters.start} s/d ${filters.end}`;
+                if (filters.start) return `Mulai ${filters.start}`;
+                if (filters.end) return `Sampai ${filters.end}`;
+                return 'Sesuai Filter';
+            }
+            return 'Seluruh Riwayat';
+        };
+
+        const copyCategoryList = (catKey, catTitle, officers) => {
+            if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+            const count = officers.length;
+            const scopeLabel = getScopeLabel();
+            let text = `📢 *NOTIFIKASI PETUGAS BELUM ISI TINDAK LANJUT*\n`;
+            text += `📂 Kategori: *${catTitle}*\n`;
+            text += `📅 Periode: ${scopeLabel}\n`;
+            text += `⚠️ Jumlah Belum Mengisi: *${count} Petugas*\n\n`;
+            if (count > 0) {
+                text += `*Daftar Nama Petugas:*\n`;
+                officers.forEach((name, idx) => {
+                    text += `${idx + 1}. ${name}\n`;
+                });
+                text += `\nMohon rekan-rekan petugas di atas untuk segera mengisi tindak lanjut. Terima kasih. 🙏`;
+            } else {
+                text += `✅ *Alhamdulillah, seluruh petugas pada kategori ${catTitle} sudah mengisi tindak lanjut.*`;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                setCopiedCategory(catKey);
+                showToast?.(`Daftar petugas ${catTitle} disalin ke clipboard!`);
+                setTimeout(() => setCopiedCategory(''), 2500);
+            }).catch(() => {
+                showToast?.('Gagal menyalin ke clipboard.');
+            });
+        };
+
+        const copyAllCategoriesSummary = () => {
+            if (typeof navigator === 'undefined' || !navigator.clipboard || !pendingData) return;
+            const scopeLabel = getScopeLabel();
+            const catConfigs = [
+                { key: 'kol1', title: 'KOL 1 (1–10 Hari)', icon: '🔴' },
+                { key: 'lar', title: 'LAR (11–30 Hari)', icon: '🟠' },
+                { key: 'npl', title: 'NPL (KOL 3–5)', icon: '🔴' },
+                { key: 'arrumExp', title: 'ARRUM EXPRES LOAN', icon: '⚡' }
+            ];
+            let text = `📢 *REKAP NOTIFIKASI PETUGAS BELUM ISI TINDAK LANJUT*\n`;
+            text += `📅 Periode: ${scopeLabel}\n`;
+            text += `📊 Total Belum Mengisi: *${pendingData.totalPending} dari ${pendingData.totalOfficers} Petugas*\n`;
+            text += `──────────────────────\n\n`;
+
+            catConfigs.forEach(({ key, title, icon }) => {
+                const catData = pendingData.byCategory[key] || { pendingOfficers: [], pendingCount: 0, totalOfficers: 0 };
+                text += `${icon} *${title}* (${catData.pendingCount} Belum / ${catData.totalOfficers} Petugas)\n`;
+                if (catData.pendingCount > 0) {
+                    catData.pendingOfficers.forEach((name, idx) => {
+                        text += `   ${idx + 1}. ${name}\n`;
+                    });
+                } else {
+                    text += `   ✅ Lengkap (Semua sudah isi)\n`;
+                }
+                text += `\n`;
+            });
+
+            text += `Mohon kerja sama rekan-rekan untuk segera menyelesaikan input tindak lanjut hari ini. Terima kasih. 🙏`;
+            navigator.clipboard.writeText(text).then(() => {
+                setCopiedCategory('all');
+                showToast?.('Rekap notifikasi seluruh kategori disalin ke clipboard!');
+                setTimeout(() => setCopiedCategory(''), 2500);
+            }).catch(() => {
+                showToast?.('Gagal menyalin ke clipboard.');
+            });
+        };
 
         const change=(name,value)=>setFilters(previous=>({...previous,[name]:value}));
         const remove=async()=>{
@@ -587,7 +777,7 @@
                     signal:controller.signal,
                     onProgress:progress=>{if(mounted.current)setPdfProgress(progress);}
                 });
-                if(mounted.current)showToast?.('Rekap PDF beserta seluruh foto selesai dibuat. Unduhan dimulai.');
+                if(mounted.current)showToast?.('Rekap PDF selesai dibuat. Unduhan dimulai.');
             }catch(error){if(mounted.current&&error.name!=='AbortError')setPdfError(error.message);}
             finally{if(mounted.current)setPdfProgress(null);pdfController.current=null;}
         };
@@ -612,7 +802,10 @@
                 </div>
             </Modal>}
             <div className="bg-white border border-slate-200 p-5 rounded-3xl flex flex-wrap justify-between gap-4 items-center">
-                <div><h1 className="text-xl font-black text-slate-900">Rekap Tindak Lanjut</h1><p className="text-xs text-slate-500 mt-1">Bukti kunjungan KOL 1, LAR, NPL, dan Arrum Exspres Loan dari seluruh petugas.</p></div>
+                <div>
+                    <h1 className="text-xl font-black text-slate-900">Rekap Tindak Lanjut</h1>
+                    <p className="text-xs text-slate-500 mt-1">Bukti kunjungan KOL 1, LAR, NPL, dan Arrum Exspres Loan dari seluruh petugas.</p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" disabled={loading||!!pdfProgress} onClick={load} className={`${button} bg-slate-100`}><i className="fas fa-rotate mr-2"></i>Muat Ulang</button>
                     <button type="button" disabled={loading||!visible.length||!!error||!!pdfProgress} onClick={exportCsv} className={`${button} bg-emerald-600 text-white`}>Unduh Rekap CSV</button>
@@ -624,6 +817,394 @@
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[
                 ['Bukti Foto',visible.length],['Nasabah Ditindaklanjuti',new Set(visible.map(row=>`${row.branch}|${row.credit_no}`)).size],['Petugas',new Set(visible.map(r => (core?.officerIdentity ? core.officerIdentity(r) : (r?.officer_name || r?.actor_name || '')))).size]
             ].map(([label,value])=><div key={label} className="bg-white border border-slate-200 rounded-2xl p-4"><p className="text-xs font-bold text-slate-500">{label}</p><p className="text-2xl font-black text-emerald-700 mt-2">{value}</p></div>)}</div>
+
+            {/* Notifikasi Petugas Belum Tindak Lanjut per Kategori */}
+            {pendingData && (
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg ${
+                                pendingData.totalPending > 0
+                                    ? 'bg-rose-100 text-rose-600 border border-rose-200'
+                                    : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            }`}>
+                                <i className={`fas ${pendingData.totalPending > 0 ? 'fa-bell' : 'fa-check-double'}`}></i>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h2 className="text-base font-black text-slate-900">
+                                        Notifikasi Petugas Belum Tindak Lanjut
+                                    </h2>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                                        pendingData.totalPending > 0
+                                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    }`}>
+                                        {pendingData.totalPending > 0
+                                            ? `${pendingData.totalPending} Petugas Belum Isi`
+                                            : 'Semua Petugas Selesai'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Daftar nama petugas yang belum mengisi tindak lanjut per kategori ({getScopeLabel()}).
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Scope Selector */}
+                            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs">
+                                <button
+                                    type="button"
+                                    onClick={() => setNotifyScope('today')}
+                                    className={`px-3 py-1 rounded-lg font-bold transition ${
+                                        notifyScope === 'today'
+                                            ? 'bg-white text-slate-900 shadow-xs'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                    }`}
+                                >
+                                    Hari Ini
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNotifyScope('filtered')}
+                                    className={`px-3 py-1 rounded-lg font-bold transition ${
+                                        notifyScope === 'filtered'
+                                            ? 'bg-white text-slate-900 shadow-xs'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                    }`}
+                                >
+                                    Sesuai Filter
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNotifyScope('all')}
+                                    className={`px-3 py-1 rounded-lg font-bold transition ${
+                                        notifyScope === 'all'
+                                            ? 'bg-white text-slate-900 shadow-xs'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                    }`}
+                                >
+                                    Semua
+                                </button>
+                            </div>
+
+                            {/* Salin Rekap Semua */}
+                            <button
+                                type="button"
+                                onClick={copyAllCategoriesSummary}
+                                className={`${button} bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5`}
+                                title="Salin rekap notifikasi seluruh kategori untuk dibagikan ke WhatsApp"
+                            >
+                                <i className={`fas ${copiedCategory === 'all' ? 'fa-check' : 'fa-copy'}`}></i>
+                                <span>{copiedCategory === 'all' ? 'Tersalin!' : 'Salin Rekap Semua'}</span>
+                            </button>
+
+                            {/* Toggle Collapse */}
+                            <button
+                                type="button"
+                                onClick={() => setIsNotifyOpen(v => !v)}
+                                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition"
+                                title={isNotifyOpen ? 'Ciutkan notifikasi' : 'Buka notifikasi'}
+                            >
+                                <i className={`fas ${isNotifyOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {isNotifyOpen && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5 pt-1">
+                            {/* Card 1: KOL 1 */}
+                            {(() => {
+                                const catKey = 'kol1';
+                                const catTitle = 'KOL 1 (1–10 Hari)';
+                                const data = pendingData.byCategory[catKey] || { pendingOfficers: [], pendingCount: 0, completedCount: 0, totalOfficers: 0 };
+                                const percent = data.totalOfficers > 0 ? Math.round((data.completedCount / data.totalOfficers) * 100) : 0;
+                                return (
+                                    <div className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-amber-100">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center text-xs">
+                                                        <i className="fas fa-triangle-exclamation"></i>
+                                                    </div>
+                                                    <span className="font-bold text-xs text-amber-950">KOL 1 (1–10 Hari)</span>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                                                    data.pendingCount > 0 ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-emerald-100 text-emerald-800'
+                                                }`}>
+                                                    {data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap'}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-2.5 mb-2">
+                                                <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                                    <span>Progres Pengisian</span>
+                                                    <span>{data.completedCount}/{data.totalOfficers} ({percent}%)</span>
+                                                </div>
+                                                <div className="w-full bg-amber-100/60 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-amber-600 h-1.5 rounded-full transition-all duration-300"
+                                                        style={{ width: `${percent}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3">
+                                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                                    {data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'}
+                                                </p>
+                                                {data.pendingCount > 0 ? (
+                                                    <div className="max-h-36 overflow-y-auto pr-1 space-y-1">
+                                                        {data.pendingOfficers.map((name, i) => (
+                                                            <div key={name} className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-amber-100/80">
+                                                                <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0">
+                                                                    {i + 1}
+                                                                </span>
+                                                                <span className="truncate">{name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100">
+                                                        <i className="fas fa-check-circle text-emerald-600 mr-1.5"></i>
+                                                        Semua petugas KOL 1 sudah mengisi ({data.totalOfficers} orang).
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => copyCategoryList(catKey, catTitle, data.pendingOfficers)}
+                                            className="mt-3 w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <i className={`fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`}></i>
+                                            <span>{copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar KOL 1'}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Card 2: LAR */}
+                            {(() => {
+                                const catKey = 'lar';
+                                const catTitle = 'LAR (11–30 Hari)';
+                                const data = pendingData.byCategory[catKey] || { pendingOfficers: [], pendingCount: 0, completedCount: 0, totalOfficers: 0 };
+                                const percent = data.totalOfficers > 0 ? Math.round((data.completedCount / data.totalOfficers) * 100) : 0;
+                                return (
+                                    <div className="bg-orange-50/50 border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-orange-100">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-700 flex items-center justify-center text-xs">
+                                                        <i className="fas fa-clock-rotate-left"></i>
+                                                    </div>
+                                                    <span className="font-bold text-xs text-orange-950">LAR (11–30 Hari)</span>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                                                    data.pendingCount > 0 ? 'bg-orange-100 text-orange-900 border border-orange-200' : 'bg-emerald-100 text-emerald-800'
+                                                }`}>
+                                                    {data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap'}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-2.5 mb-2">
+                                                <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                                    <span>Progres Pengisian</span>
+                                                    <span>{data.completedCount}/{data.totalOfficers} ({percent}%)</span>
+                                                </div>
+                                                <div className="w-full bg-orange-100/60 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-orange-600 h-1.5 rounded-full transition-all duration-300"
+                                                        style={{ width: `${percent}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3">
+                                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                                    {data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'}
+                                                </p>
+                                                {data.pendingCount > 0 ? (
+                                                    <div className="max-h-36 overflow-y-auto pr-1 space-y-1">
+                                                        {data.pendingOfficers.map((name, i) => (
+                                                            <div key={name} className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-orange-100/80">
+                                                                <span className="w-4 h-4 rounded-full bg-orange-100 text-orange-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0">
+                                                                    {i + 1}
+                                                                </span>
+                                                                <span className="truncate">{name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100">
+                                                        <i className="fas fa-check-circle text-emerald-600 mr-1.5"></i>
+                                                        Semua petugas LAR sudah mengisi ({data.totalOfficers} orang).
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => copyCategoryList(catKey, catTitle, data.pendingOfficers)}
+                                            className="mt-3 w-full py-1.5 px-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <i className={`fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`}></i>
+                                            <span>{copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar LAR'}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Card 3: NPL */}
+                            {(() => {
+                                const catKey = 'npl';
+                                const catTitle = 'NPL (KOL 3–5)';
+                                const data = pendingData.byCategory[catKey] || { pendingOfficers: [], pendingCount: 0, completedCount: 0, totalOfficers: 0 };
+                                const percent = data.totalOfficers > 0 ? Math.round((data.completedCount / data.totalOfficers) * 100) : 0;
+                                return (
+                                    <div className="bg-rose-50/50 border border-rose-200/80 rounded-2xl p-4 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-rose-100">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-700 flex items-center justify-center text-xs">
+                                                        <i className="fas fa-circle-exclamation"></i>
+                                                    </div>
+                                                    <span className="font-bold text-xs text-rose-950">NPL (KOL 3–5)</span>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                                                    data.pendingCount > 0 ? 'bg-rose-100 text-rose-900 border border-rose-200' : 'bg-emerald-100 text-emerald-800'
+                                                }`}>
+                                                    {data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap'}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-2.5 mb-2">
+                                                <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                                    <span>Progres Pengisian</span>
+                                                    <span>{data.completedCount}/{data.totalOfficers} ({percent}%)</span>
+                                                </div>
+                                                <div className="w-full bg-rose-100/60 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-rose-600 h-1.5 rounded-full transition-all duration-300"
+                                                        style={{ width: `${percent}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3">
+                                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                                    {data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'}
+                                                </p>
+                                                {data.pendingCount > 0 ? (
+                                                    <div className="max-h-36 overflow-y-auto pr-1 space-y-1">
+                                                        {data.pendingOfficers.map((name, i) => (
+                                                            <div key={name} className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-rose-100/80">
+                                                                <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0">
+                                                                    {i + 1}
+                                                                </span>
+                                                                <span className="truncate">{name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100">
+                                                        <i className="fas fa-check-circle text-emerald-600 mr-1.5"></i>
+                                                        Semua petugas NPL sudah mengisi ({data.totalOfficers} orang).
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => copyCategoryList(catKey, catTitle, data.pendingOfficers)}
+                                            className="mt-3 w-full py-1.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <i className={`fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`}></i>
+                                            <span>{copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar NPL'}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Card 4: Arrum Exspres Loan */}
+                            {(() => {
+                                const catKey = 'arrumExp';
+                                const catTitle = 'Arrum Exspres Loan';
+                                const data = pendingData.byCategory[catKey] || { pendingOfficers: [], pendingCount: 0, completedCount: 0, totalOfficers: 0 };
+                                const percent = data.totalOfficers > 0 ? Math.round((data.completedCount / data.totalOfficers) * 100) : 0;
+                                return (
+                                    <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-2xl p-4 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-indigo-100">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-700 flex items-center justify-center text-xs">
+                                                        <i className="fas fa-bolt-lightning"></i>
+                                                    </div>
+                                                    <span className="font-bold text-xs text-indigo-950">Arrum Exspres Loan</span>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                                                    data.pendingCount > 0 ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' : 'bg-emerald-100 text-emerald-800'
+                                                }`}>
+                                                    {data.pendingCount > 0 ? `${data.pendingCount} Belum` : 'Lengkap'}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-2.5 mb-2">
+                                                <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                                                    <span>Progres Pengisian</span>
+                                                    <span>{data.completedCount}/{data.totalOfficers} ({percent}%)</span>
+                                                </div>
+                                                <div className="w-full bg-indigo-100/60 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                                                        style={{ width: `${percent}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3">
+                                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                                    {data.pendingCount > 0 ? 'Daftar Petugas Belum Isi:' : 'Status Petugas:'}
+                                                </p>
+                                                {data.pendingCount > 0 ? (
+                                                    <div className="max-h-36 overflow-y-auto pr-1 space-y-1">
+                                                        {data.pendingOfficers.map((name, i) => (
+                                                            <div key={name} className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-lg text-xs font-semibold text-slate-800 border border-indigo-100/80">
+                                                                <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[10px] flex items-center justify-center font-bold flex-shrink-0">
+                                                                    {i + 1}
+                                                                </span>
+                                                                <span className="truncate">{name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-800 text-center border border-emerald-100">
+                                                        <i className="fas fa-check-circle text-emerald-600 mr-1.5"></i>
+                                                        Semua petugas Arrum Exspres sudah mengisi ({data.totalOfficers} orang).
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => copyCategoryList(catKey, catTitle, data.pendingOfficers)}
+                                            className="mt-3 w-full py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <i className={`fas ${copiedCategory === catKey ? 'fa-check' : 'fa-copy'}`}></i>
+                                            <span>{copiedCategory === catKey ? 'Tersalin!' : 'Salin Daftar Arrum Exspres'}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Quick Category Filter Pills */}
             <div className="bg-white p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -743,7 +1324,20 @@
                                 </div>
                             )}
                         </td>
-                        <td className="p-4 min-w-[180px]"><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>setPhoto(row)} className={`${button} bg-emerald-50 text-emerald-800 border border-emerald-200`}>Lihat Foto</button><button type="button" onClick={()=>{setDeleteError('');setDeleteTarget(row);}} className={`${button} bg-rose-50 text-rose-700 border border-rose-200`}>Hapus</button></div>{row.notes&&<p className="mt-2 text-slate-500 whitespace-pre-wrap">{row.notes}</p>}</td>
+                        <td className="p-4 min-w-[180px]">
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={()=>setPhoto(row)}
+                                    className={`${button} bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200`}
+                                    title="Lihat Bukti Foto"
+                                >
+                                    <i className="fas fa-image mr-1.5 text-emerald-600"></i> Lihat Foto
+                                </button>
+                                <button type="button" onClick={()=>{setDeleteError('');setDeleteTarget(row);}} className={`${button} bg-rose-50 text-rose-700 border border-rose-200`}>Hapus</button>
+                            </div>
+                            {row.notes&&<p className="mt-2 text-slate-500 whitespace-pre-wrap">{row.notes}</p>}
+                        </td>
                     </tr>)}{!visible.length&&<tr><td colSpan={7} className="p-10 text-center text-slate-500">{error?'Perbaiki koneksi lalu muat ulang.':'Belum ada tindak lanjut sesuai filter.'}</td></tr>}</tbody>
                 </table>
             </div>}
