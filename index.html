@@ -2603,6 +2603,17 @@
             const [newUser, setNewUser] = useState({ username: "", password: "", role: "ao" });
 
             const [officers, setOfficers] = useState(() => safeGetOfficers());
+            useEffect(() => {
+                const handleOfficersUpdated = (e) => {
+                    if (e && e.detail) {
+                        setOfficers(e.detail);
+                    } else {
+                        setOfficers(safeGetOfficers());
+                    }
+                };
+                window.addEventListener('dashboard_officers_updated', handleOfficersUpdated);
+                return () => window.removeEventListener('dashboard_officers_updated', handleOfficersUpdated);
+            }, []);
             const [newOfficerKol1, setNewOfficerKol1] = useState("");
             const [newOfficerLar, setNewOfficerLar] = useState("");
             const [newOfficerNpl, setNewOfficerNpl] = useState("");
@@ -2640,6 +2651,12 @@
                         if (setAoList) setAoList(saved.lar);
                         try { if (saveMasterItem) await saveMasterItem('ao', saved.lar); } catch(_) {}
                     }
+                    if (saved.npl && saved.npl.length) {
+                        try { if (saveMasterItem) await saveMasterItem('npl', saved.npl); } catch(_) {}
+                    }
+                    if (saved.arrumExp && saved.arrumExp.length) {
+                        try { if (saveMasterItem) await saveMasterItem('arrumExp', saved.arrumExp); } catch(_) {}
+                    }
 
                     showToast(`Daftar petugas berhasil diimpor: KOL 1 (${(saved.kol1 || []).length}), LAR (${(saved.lar || []).length}), NPL (${(saved.npl || []).length}), Exspres Loan (${(saved.arrumExp || []).length} petugas).`);
                 } catch (error) {
@@ -2663,7 +2680,7 @@
                 }
             };
 
-            const addSingleOfficer = (category, name, inputSetter) => {
+            const addSingleOfficer = async (category, name, inputSetter) => {
                 const clean = String(name || '').trim().toUpperCase();
                 if (!clean) return;
                 const currentList = Array.isArray(safeOfficers[category]) ? safeOfficers[category] : [];
@@ -2676,31 +2693,51 @@
                 const saved = safeSaveOfficers(updated);
                 setOfficers(saved);
                 if (inputSetter) inputSetter('');
-                if (category === 'kol1') {
-                    if (setAdminList) setAdminList(saved.kol1 || []);
-                    if (saveMasterItem) saveMasterItem('admin', saved.kol1 || []).catch(()=>{});
-                } else if (category === 'lar') {
-                    if (setAoList) setAoList(saved.lar || []);
-                    if (saveMasterItem) saveMasterItem('ao', saved.lar || []).catch(()=>{});
+                
+                const masterKindMap = { kol1: 'admin', lar: 'ao', npl: 'npl', arrumExp: 'arrumExp' };
+                const targetKind = masterKindMap[category];
+
+                if (category === 'kol1' && setAdminList) setAdminList(saved.kol1 || []);
+                if (category === 'lar' && setAoList) setAoList(saved.lar || []);
+
+                if (saveMasterItem && targetKind) {
+                    try {
+                        await saveMasterItem(targetKind, saved[category] || []);
+                        showToast(`Petugas ${clean} ditambahkan ke ${catLabel} & tersinkron ke cloud.`);
+                    } catch (err) {
+                        console.error('Gagal sinkron master ke Supabase:', err);
+                        showToast(`Petugas ${clean} disimpan di perangkat ini (Cloud: ${err.message})`, 'error');
+                    }
+                } else {
+                    showToast(`Petugas ${clean} ditambahkan ke ${catLabel}.`);
                 }
-                showToast(`Petugas ${clean} ditambahkan ke ${catLabel}.`);
             };
 
-            const removeSingleOfficer = (category, name) => {
+            const removeSingleOfficer = async (category, name) => {
                 const currentList = Array.isArray(safeOfficers[category]) ? safeOfficers[category] : [];
                 const updatedList = currentList.filter(item => item !== name);
                 const updated = { ...safeOfficers, [category]: updatedList };
                 const saved = safeSaveOfficers(updated);
                 setOfficers(saved);
-                if (category === 'kol1') {
-                    if (setAdminList) setAdminList(saved.kol1 || []);
-                    if (saveMasterItem) saveMasterItem('admin', saved.kol1 || []).catch(()=>{});
-                } else if (category === 'lar') {
-                    if (setAoList) setAoList(saved.lar || []);
-                    if (saveMasterItem) saveMasterItem('ao', saved.lar || []).catch(()=>{});
-                }
+                
+                const masterKindMap = { kol1: 'admin', lar: 'ao', npl: 'npl', arrumExp: 'arrumExp' };
+                const targetKind = masterKindMap[category];
                 const catLabel = category === 'arrumExp' ? 'ARRUM EXSPRES LOAN' : category.toUpperCase();
-                showToast(`Petugas ${name} dihapus dari ${catLabel}.`);
+
+                if (category === 'kol1' && setAdminList) setAdminList(saved.kol1 || []);
+                if (category === 'lar' && setAoList) setAoList(saved.lar || []);
+
+                if (saveMasterItem && targetKind) {
+                    try {
+                        await saveMasterItem(targetKind, saved[category] || []);
+                        showToast(`Petugas ${name} dihapus dari ${catLabel} & tersinkron ke cloud.`);
+                    } catch (err) {
+                        console.error('Gagal sinkron master ke Supabase:', err);
+                        showToast(`Petugas ${name} dihapus di perangkat ini (Cloud: ${err.message})`, 'error');
+                    }
+                } else {
+                    showToast(`Petugas ${name} dihapus dari ${catLabel}.`);
+                }
             };
 
             const resetCategoryOfficers = (category) => {
@@ -2708,13 +2745,30 @@
                 setConfirmModal({
                     open: true,
                     title: `Reset Petugas ${label}`,
-                    message: `Kembalikan daftar petugas ${label} ke default awal?`,
-                    onConfirm: () => {
+                    message: `Kembalikan daftar petugas ${label} ke default awal? Perubahan ini juga akan disinkronkan ke cloud.`,
+                    onConfirm: async () => {
                         const defaults = (window.FollowupCore && window.FollowupCore.DEFAULT_OFFICERS) || DEFAULT_OFFICERS_FALLBACK;
                         const updated = { ...safeOfficers, [category]: [...(defaults[category] || [])] };
                         const saved = safeSaveOfficers(updated);
                         setOfficers(saved);
-                        showToast(`Daftar petugas ${label} dikembalikan ke default.`);
+                        
+                        const masterKindMap = { kol1: 'admin', lar: 'ao', npl: 'npl', arrumExp: 'arrumExp' };
+                        const targetKind = masterKindMap[category];
+
+                        if (category === 'kol1' && setAdminList) setAdminList(saved.kol1 || []);
+                        if (category === 'lar' && setAoList) setAoList(saved.lar || []);
+
+                        if (saveMasterItem && targetKind) {
+                            try {
+                                await saveMasterItem(targetKind, saved[category] || []);
+                                showToast(`Daftar petugas ${label} dikembalikan ke default & tersinkron ke cloud.`);
+                            } catch (err) {
+                                console.error('Gagal sinkron reset ke Supabase:', err);
+                                showToast(`Daftar petugas ${label} direset di perangkat ini (Cloud: ${err.message})`, 'error');
+                            }
+                        } else {
+                            showToast(`Daftar petugas ${label} dikembalikan ke default.`);
+                        }
                         setConfirmModal({ open: false, title: '', message: '', onConfirm: null });
                     }
                 });
@@ -2737,14 +2791,26 @@
             const removeCabang = name => updateMaster('cabang', safeCabangList.filter(v => v !== name), setCabangList, null, 'Cabang dihapus.');
             const addAo = () => {
                 if (!newAo.trim()) return;
-                return updateMaster('ao', [...new Set([...safeAoList, newAo.trim().toUpperCase()])], setAoList, setNewAo, 'AO ditambahkan.');
+                const nextList = [...new Set([...safeAoList, newAo.trim().toUpperCase()])];
+                safeSaveOfficers({ ...safeOfficers, lar: nextList });
+                return updateMaster('ao', nextList, setAoList, setNewAo, 'AO ditambahkan.');
             };
-            const removeAo = name => updateMaster('ao', safeAoList.filter(v => v !== name), setAoList, null, 'AO dihapus.');
+            const removeAo = name => {
+                const nextList = safeAoList.filter(v => v !== name);
+                safeSaveOfficers({ ...safeOfficers, lar: nextList });
+                return updateMaster('ao', nextList, setAoList, null, 'AO dihapus.');
+            };
             const addAdmin = () => {
                 if (!newAdmin.trim()) return;
-                return updateMaster('admin', [...new Set([...safeAdminList, newAdmin.trim().toUpperCase()])], setAdminList, setNewAdmin, 'Admin Mikro ditambahkan.');
+                const nextList = [...new Set([...safeAdminList, newAdmin.trim().toUpperCase()])];
+                safeSaveOfficers({ ...safeOfficers, kol1: nextList });
+                return updateMaster('admin', nextList, setAdminList, setNewAdmin, 'Admin Mikro ditambahkan.');
             };
-            const removeAdmin = name => updateMaster('admin', safeAdminList.filter(v => v !== name), setAdminList, null, 'Admin Mikro dihapus.');
+            const removeAdmin = name => {
+                const nextList = safeAdminList.filter(v => v !== name);
+                safeSaveOfficers({ ...safeOfficers, kol1: nextList });
+                return updateMaster('admin', nextList, setAdminList, null, 'Admin Mikro dihapus.');
+            };
             const addProduct = () => {
                 if (!newProduct.trim()) return;
                 return updateMaster('produk', [...new Set([...safeProductList, newProduct.trim().toUpperCase()])], setProductList, setNewProduct, 'Produk ditambahkan.');
@@ -5583,6 +5649,14 @@ const DashboardAsuransiView = ({ showToast }) => {
                     setKlaimData(result.klaim); setReportData(result.report);
                     setAoList(result.masters.ao || []); setProductList(result.masters.produk || []);
                     setAdminList(result.masters.admin || []); setCabangList(result.masters.cabang || []);
+                    if (window.FollowupCore && typeof window.FollowupCore.setCloudOfficers === 'function') {
+                        window.FollowupCore.setCloudOfficers({
+                            kol1: result.masters.admin,
+                            lar: result.masters.ao,
+                            npl: result.masters.npl,
+                            arrumExp: result.masters.arrumExp
+                        });
+                    }
                     setAppUsers(result.users); setCloudStatus('connected');
                     return true;
                 } catch (error) {

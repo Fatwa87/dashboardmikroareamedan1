@@ -1,7 +1,7 @@
 (function () {
     'use strict';
     const DATASETS = ['pencairan', 'estimasi', 'kol1', 'lar', 'npl', 'klaim', 'report'];
-    const MASTER_KINDS = ['ao', 'produk', 'admin', 'cabang'];
+    const MASTER_KINDS = ['ao', 'produk', 'admin', 'cabang', 'npl', 'arrumExp'];
     const PAGE_SIZE = 500;
     let client;
     const masterVersions = new Map();
@@ -112,11 +112,12 @@
     }
 
     async function saveMaster(kind, values) {
-        if (!MASTER_KINDS.includes(kind) || !masterVersions.has(kind)) {
+        if (!MASTER_KINDS.includes(kind)) {
             throw new Error('Master belum dimuat. Sinkronkan Supabase terlebih dahulu.');
         }
+        const expectedVersion = masterVersions.has(kind) ? masterVersions.get(kind) : 1;
         const version = checked(await getClient().rpc('save_dashboard_master', {
-            p_kind: kind, p_values: values, p_expected_version: masterVersions.get(kind)
+            p_kind: kind, p_values: values, p_expected_version: expectedVersion
         }));
         masterVersions.set(kind, version);
     }

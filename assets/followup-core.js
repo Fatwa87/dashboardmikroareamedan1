@@ -261,13 +261,23 @@
         ]
     });
     const OFFICERS_STORAGE_KEY = 'dashboard_credit_officers';
+    let cachedOfficers = null;
+
     function normalizeOfficerName(value) {
         return cleanFollowupText(value).toUpperCase().replace(/\s+/g, ' ');
     }
     function getOfficers() {
+        if (cachedOfficers) {
+            return {
+                kol1: [...cachedOfficers.kol1],
+                lar: [...cachedOfficers.lar],
+                npl: [...cachedOfficers.npl],
+                arrumExp: [...cachedOfficers.arrumExp]
+            };
+        }
         try {
             if (typeof window !== 'undefined' && window.localStorage) {
-                const stored = window.localStorage.getItem(OFFICERS_STORAGE_KEY);
+                const stored = window.localStorage.getItem(OFFICERS_STORAGE_KEY) || window.localStorage.getItem('pegadaian_officers_v1');
                 if (stored) {
                     const parsed = JSON.parse(stored);
                     if (parsed && typeof parsed === 'object') {
@@ -280,21 +290,35 @@
                             : (Array.isArray(parsed.arrum) && parsed.arrum.length
                                 ? [...new Set(parsed.arrum.map(normalizeOfficerName).filter(Boolean))]
                                 : [...DEFAULT_OFFICERS.arrumExp]);
-                        return {
+                        const loaded = {
                             kol1: Array.isArray(parsed.kol1) && parsed.kol1.length ? [...new Set(parsed.kol1.map(normalizeOfficerName).filter(Boolean))] : [...DEFAULT_OFFICERS.kol1],
                             lar: Array.isArray(parsed.lar) && parsed.lar.length ? [...new Set(parsed.lar.map(normalizeOfficerName).filter(Boolean))] : [...DEFAULT_OFFICERS.lar],
                             npl: nplList,
                             arrumExp: arrumList
                         };
+                        cachedOfficers = loaded;
+                        return {
+                            kol1: [...loaded.kol1],
+                            lar: [...loaded.lar],
+                            npl: [...loaded.npl],
+                            arrumExp: [...loaded.arrumExp]
+                        };
                     }
                 }
             }
         } catch (_) {}
-        return {
+        const fallback = {
             kol1: [...DEFAULT_OFFICERS.kol1],
             lar: [...DEFAULT_OFFICERS.lar],
             npl: [...DEFAULT_OFFICERS.npl],
             arrumExp: [...DEFAULT_OFFICERS.arrumExp]
+        };
+        cachedOfficers = fallback;
+        return {
+            kol1: [...fallback.kol1],
+            lar: [...fallback.lar],
+            npl: [...fallback.npl],
+            arrumExp: [...fallback.arrumExp]
         };
     }
     function saveOfficers(officers) {
@@ -304,13 +328,47 @@
             npl: [...new Set((officers?.npl || []).map(normalizeOfficerName).filter(Boolean))],
             arrumExp: [...new Set((officers?.arrumExp || officers?.arrum || []).map(normalizeOfficerName).filter(Boolean))]
         };
+        cachedOfficers = cleaned;
         try {
             if (typeof window !== 'undefined' && window.localStorage) {
                 window.localStorage.setItem(OFFICERS_STORAGE_KEY, JSON.stringify(cleaned));
-                window.dispatchEvent(new CustomEvent('dashboard_officers_updated', { detail: cleaned }));
+                window.localStorage.setItem('pegadaian_officers_v1', JSON.stringify(cleaned));
+                if (typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+                    window.dispatchEvent(new CustomEvent('dashboard_officers_updated', { detail: cleaned }));
+                }
             }
         } catch (_) {}
-        return cleaned;
+        return {
+            kol1: [...cleaned.kol1],
+            lar: [...cleaned.lar],
+            npl: [...cleaned.npl],
+            arrumExp: [...cleaned.arrumExp]
+        };
+    }
+    function setCloudOfficers(cloudMasters) {
+        if (!cloudMasters || typeof cloudMasters !== 'object') return getOfficers();
+        const current = getOfficers();
+        const updated = {
+            kol1: Array.isArray(cloudMasters.kol1) && cloudMasters.kol1.length
+                ? [...new Set(cloudMasters.kol1.map(normalizeOfficerName).filter(Boolean))]
+                : (Array.isArray(cloudMasters.admin) && cloudMasters.admin.length
+                    ? [...new Set(cloudMasters.admin.map(normalizeOfficerName).filter(Boolean))]
+                    : current.kol1),
+            lar: Array.isArray(cloudMasters.lar) && cloudMasters.lar.length
+                ? [...new Set(cloudMasters.lar.map(normalizeOfficerName).filter(Boolean))]
+                : (Array.isArray(cloudMasters.ao) && cloudMasters.ao.length
+                    ? [...new Set(cloudMasters.ao.map(normalizeOfficerName).filter(Boolean))]
+                    : current.lar),
+            npl: Array.isArray(cloudMasters.npl) && cloudMasters.npl.length
+                ? [...new Set(cloudMasters.npl.map(normalizeOfficerName).filter(Boolean))]
+                : current.npl,
+            arrumExp: Array.isArray(cloudMasters.arrumExp) && cloudMasters.arrumExp.length
+                ? [...new Set(cloudMasters.arrumExp.map(normalizeOfficerName).filter(Boolean))]
+                : (Array.isArray(cloudMasters.arrum) && cloudMasters.arrum.length
+                    ? [...new Set(cloudMasters.arrum.map(normalizeOfficerName).filter(Boolean))]
+                    : current.arrumExp)
+        };
+        return saveOfficers(updated);
     }
     function getOfficersForDataset(dataset) {
         const current = getOfficers();
@@ -621,7 +679,7 @@
         cleanFollowupText, validateFollowupDetails, officerName, officerIdentity,
         customer, localDay, formatTime, mapUrl, googleMapUrl, csvCell, recapCsv, filterRecap,
         getLocation, stampPhoto,
-        getOfficers, saveOfficers, getOfficersForDataset, parseOfficersExcel, generateOfficersTemplate,
+        getOfficers, saveOfficers, setCloudOfficers, getOfficersForDataset, parseOfficersExcel, generateOfficersTemplate,
         getWibHour, isPhotoAccessAllowed, getPhotoAccessStatus, getPendingOfficers
     });
 }());

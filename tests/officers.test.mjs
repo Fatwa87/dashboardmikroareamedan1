@@ -86,6 +86,21 @@ test('FollowupCore officers management defaults and local storage save/retrieve'
     assert.deepEqual(toHost(core.getOfficersForDataset('arrum')), retrieved.arrumExp);
     // fallback for unknown dataset
     assert.deepEqual(toHost(core.getOfficersForDataset('unknown')), []);
+
+    // setCloudOfficers updates in-memory and local storage correctly (both naming conventions)
+    const synced = toHost(core.setCloudOfficers({
+        admin: ['Petugas Admin Baru'],
+        ao: ['Petugas AO Baru'],
+        npl: ['Petugas NPL Baru'],
+        arrumExp: ['Petugas Arrum Baru']
+    }));
+    assert.deepEqual(synced, {
+        kol1: ['PETUGAS ADMIN BARU'],
+        lar: ['PETUGAS AO BARU'],
+        npl: ['PETUGAS NPL BARU'],
+        arrumExp: ['PETUGAS ARRUM BARU']
+    });
+    assert.deepEqual(toHost(core.getOfficers()), synced);
 });
 
 test('FollowupCore parseOfficersExcel parses 2-column format (KATEGORI & NAMA PETUGAS)', () => {

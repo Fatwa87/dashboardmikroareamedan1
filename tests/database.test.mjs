@@ -28,6 +28,7 @@ test('PostgreSQL migration, RLS, atomic imports, and concurrent master edits', a
         await db.exec(await readFile(new URL('../supabase/migrations/202610200001_dashboard.sql', import.meta.url), 'utf8'));
         await db.exec(await readFile(new URL('../supabase/migrations/202610200002_seed_masters.sql', import.meta.url), 'utf8'));
         await db.exec(await readFile(new URL('../supabase/migrations/202610200003_legacy_usernames.sql', import.meta.url), 'utf8'));
+        await db.exec(await readFile(new URL('../supabase/migrations/202610270012_officers_master.sql', import.meta.url), 'utf8'));
         await db.exec(`insert into auth.users(id) values ('${ids.admin}'),('${ids.ao}'),('${ids.outsider}');
             insert into public.app_profiles(user_id,username,role) values
                 ('${ids.admin}','admin','admin'),('${ids.ao}','petugas','ao');`);
@@ -66,6 +67,11 @@ test('PostgreSQL migration, RLS, atomic imports, and concurrent master edits', a
         assert.deepEqual((await query("select values from dashboard_master where kind='ao'")).rows[0].values, [], 'Intentionally empty lists must stay empty');
         await assert.rejects(query("select save_dashboard_master('ao','[\"B\"]',1)"), /perangkat lain/);
         await assert.rejects(query("select save_dashboard_master('ao','[\"B\",\"b\"]',2)"), /duplikat/);
+        // Verify npl and arrumExp master updates
+        assert.equal((await query("select save_dashboard_master('npl','[\"PETUGAS NPL BARU\"]',1) as version")).rows[0].version, 2);
+        assert.deepEqual((await query("select values from dashboard_master where kind='npl'")).rows[0].values, ['PETUGAS NPL BARU']);
+        assert.equal((await query("select save_dashboard_master('arrumExp','[\"PETUGAS ARRUM BARU\"]',1) as version")).rows[0].version, 2);
+        assert.deepEqual((await query("select values from dashboard_master where kind='arrumExp'")).rows[0].values, ['PETUGAS ARRUM BARU']);
 
         await db.exec('reset role');
         await query("insert into dashboard_records(dataset,payload) values ('kol1','{\"old\":true}'),('lar','{\"old\":true}')");
