@@ -1,6 +1,14 @@
 (function () {
     'use strict';
-    const LABELS = Object.freeze({ kol1: 'KOL 1 (1–10 Hari)', lar: 'LAR (11–30 Hari)', npl: 'NPL (KOL 3–5)', arrumExp: 'Arrum Exspres Loan', arrumexp: 'Arrum Exspres Loan', arrum: 'Arrum Exspres Loan' });
+    const LABELS = Object.freeze({
+        kol1: 'KOL 1 (1–10 Hari)',
+        lar: 'LAR (11–30 Hari)',
+        kol2: 'KOL 2 ( 80 s.d 90 hari )',
+        npl: 'NPL (KOL 3–5)',
+        arrumExp: 'Arrum Exspres Loan',
+        arrumexp: 'Arrum Exspres Loan',
+        arrum: 'Arrum Exspres Loan'
+    });
     const BUKET = 'credit-followups';
     function cleanFollowupText(value) { return String(value??'').replace(/^[\s\u200b]+|[\s\u200b]+$/g,''); }
     function validateFollowupDetails(notes,officerName) {
@@ -13,7 +21,11 @@
     }
     function officerName(row) {
         if (!row || typeof row !== 'object') return '';
-        return cleanFollowupText(row.officer_name) || row.actor_name || '';
+        const name = cleanFollowupText(
+            row.officer_name || row.officerName || row.officer ||
+            row.petugas || row.Petugas || row.AO || row.ao || ''
+        );
+        return name || cleanFollowupText(row.actor_name) || '';
     }
     function officerIdentity(row) {
         if (!row || typeof row !== 'object') return '';
@@ -96,29 +108,32 @@
             ? options.arrumCreditNos
             : new Set(Array.isArray(options.arrumCreditNos) ? options.arrumCreditNos : []);
 
+        const getRowDay = (r) => {
+            if (!r || typeof r !== 'object') return '';
+            const ts = r.captured_at || r.capturedAt || r.submitted_at || r.submittedAt || r.created_at || r.createdAt;
+            if (!ts) return '';
+            try {
+                return localDay(ts);
+            } catch (_) {
+                return '';
+            }
+        };
+
         let scopedRows = safeRows;
         if (scope === 'today') {
             scopedRows = safeRows.filter(r => {
-                if (!r || !r.captured_at) return false;
-                try {
-                    return localDay(r.captured_at) === targetDate;
-                } catch (_) {
-                    return false;
-                }
+                const day = getRowDay(r);
+                return day ? day === targetDate : false;
             });
         } else if (scope === 'filtered') {
             const start = options.start || '';
             const end = options.end || '';
             scopedRows = safeRows.filter(r => {
-                if (!r || !r.captured_at) return false;
-                try {
-                    const day = localDay(r.captured_at);
-                    if (start && day < start) return false;
-                    if (end && day > end) return false;
-                    return true;
-                } catch (_) {
-                    return false;
-                }
+                const day = getRowDay(r);
+                if (!day) return false;
+                if (start && day < start) return false;
+                if (end && day > end) return false;
+                return true;
             });
         }
 
@@ -127,7 +142,12 @@
             const ds = String(r.dataset || '').toLowerCase();
             if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
             if (arrumCreditNos.has(String(r.credit_no || '').trim())) return true;
-            if (/ARRUM\s*EXPR?ES\s*LOAN/i.test(r.notes || '') || /ARRUM\s*EXPR?ES\s*LOAN/i.test(r.product || '')) return true;
+            const notes = String(r.notes || '');
+            const product = String(r.product || r.subProduk || r['SUB PRODUK'] || r['SUB_PRODUK'] || r.Produk || '');
+            const arrumRegex = /\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i;
+            if (arrumRegex.test(notes) || arrumRegex.test(product)) return true;
+            if (/ARRUM/i.test(notes) && /(?:EXPRESS|EXSPRES|EXPRES|EXP)/i.test(notes)) return true;
+            if (/ARRUM/i.test(product) && /(?:EXPRESS|EXSPRES|EXPRES|EXP)/i.test(product)) return true;
             return false;
         };
 
@@ -140,14 +160,13 @@
 
         categories.forEach(cat => {
             const catRows = scopedRows.filter(r => {
-                if (cat === 'arrumExp') return isArrum(r);
-                if (isArrum(r)) return false;
-                return String(r.dataset || '').toLowerCase() === cat;
+                if (!r) return false;
+                const ds = String(r.dataset || '').toLowerCase();
+                if (cat === 'arrumExp') {
+                    return isArrum(r);
+                }
+                return ds === cat;
             });
-
-            const submittedSet = new Set(
-                catRows.map(r => normalizeOfficerName(officerName(r))).filter(Boolean)
-            );
 
             const list = Array.isArray(allOfficers[cat]) ? allOfficers[cat] : [];
             const completed = [];
@@ -156,7 +175,30 @@
             list.forEach(name => {
                 const norm = normalizeOfficerName(name);
                 if (!norm) return;
-                if (submittedSet.has(norm)) {
+
+                // 1. Direct match in this category's rows
+                let isDone = catRows.some(r => isOfficerMatch(name, officerName(r)));
+
+                // 2. Cross-category match: If category is arrumExp, check if officer submitted any Arrum row in scopedRows
+                if (!isDone && cat === 'arrumExp') {
+                    isDone = scopedRows.some(r => isArrum(r) && isOfficerMatch(name, officerName(r)));
+                }
+
+                // 3. If officer submitted a row matching this dataset or an Arrum follow-up for this category
+                if (!isDone) {
+                    isDone = scopedRows.some(r => {
+                        if (!isOfficerMatch(name, officerName(r))) return false;
+                        const ds = String(r.dataset || '').toLowerCase();
+                        return ds === cat || (isArrum(r) && (ds === cat || !ds));
+                    });
+                }
+
+                // 4. Fallback: If an officer is assigned to this category and submitted any follow-up in scopedRows
+                if (!isDone) {
+                    isDone = scopedRows.some(r => isOfficerMatch(name, officerName(r)));
+                }
+
+                if (isDone) {
                     completed.push(norm);
                 } else {
                     pending.push(norm);
@@ -264,7 +306,38 @@
     let cachedOfficers = null;
 
     function normalizeOfficerName(value) {
-        return cleanFollowupText(value).toUpperCase().replace(/\s+/g, ' ');
+        return cleanFollowupText(value)
+            .replace(/[\u200b\u200c\u200d\uFEFF]/g, '')
+            .replace(/[\s\u00a0]+/g, ' ')
+            .toUpperCase()
+            .replace(/[.,\/'"`_\-()[\]]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+    function cleanOfficerTokens(norm) {
+        return norm
+            .replace(/^(AO|ADMIN|PETUGAS|BAPAK|IBU|BPK)\s+/, '')
+            .replace(/\s+(AO|ADMIN|PETUGAS)$/, '')
+            .trim();
+    }
+    function isOfficerMatch(target, submitted) {
+        const t = normalizeOfficerName(target);
+        const s = normalizeOfficerName(submitted);
+        if (!t || !s) return false;
+        if (t === s) return true;
+        const ct = cleanOfficerTokens(t);
+        const cs = cleanOfficerTokens(s);
+        if (ct === cs) return true;
+        const wordsT = ct.split(' ');
+        const wordsS = cs.split(' ');
+        if (wordsT.length >= 2 && wordsS.length >= 2) {
+            const [shorter, longer] = wordsT.length <= wordsS.length ? [wordsT, wordsS] : [wordsS, wordsT];
+            const allInLonger = shorter.every(w => {
+                return longer.some(lw => lw === w || (lw.length >= 4 && w.length >= 4 && lw.slice(0, 4) === w.slice(0, 4)));
+            });
+            if (allInLonger) return true;
+        }
+        return false;
     }
     function getOfficers() {
         if (cachedOfficers) {
@@ -374,6 +447,10 @@
         const current = getOfficers();
         const key = String(dataset || '').toLowerCase().trim();
         if (key === 'kol1' || key.includes('kol 1') || key.includes('kol1')) return current.kol1 || [];
+        if (key === 'kol2' || key.includes('kol 2') || key.includes('kol2')) {
+            if (current.kol2 && current.kol2.length) return current.kol2;
+            return current.lar || [];
+        }
         if (key === 'lar') return current.lar || [];
         if (key === 'npl' || key.includes('npl') || key.includes('kol 3') || key.includes('kol3')) return current.npl || [];
         if (key === 'arrumexp' || key === 'arrum' || key.includes('arrum') || key.includes('expres') || key.includes('express')) {
@@ -557,7 +634,9 @@
         const term = (filters.search || '').trim().toLowerCase();
         const targetDs = String(filters.dataset || '').toLowerCase();
         const isArrumFilter = targetDs === 'arrumexp' || targetDs === 'arrum' || targetDs.includes('arrum');
+        const isKol2Filter = targetDs === 'kol2' || targetDs.includes('kol2') || targetDs.includes('kol 2');
         const arrumSet = filters.arrumCreditNos || (typeof window !== 'undefined' && window.arrumCreditNos) || null;
+        const kol2Set = filters.kol2CreditNos || (typeof window !== 'undefined' && window.kol2CreditNos) || null;
 
         return rows.filter(row => {
             const day = localDay(row.captured_at);
@@ -567,9 +646,15 @@
                 if (isArrumFilter) {
                     const matchesArrum = rDs === 'arrumexp' || rDs === 'arrum'
                         || (arrumSet && arrumSet.has(String(row.credit_no || '').trim()))
-                        || /ARRUM\s*EXPR?ES\s*LOAN/i.test(row.notes || '')
-                        || /ARRUM\s*EXPR?ES\s*LOAN/i.test(row.product || '');
+                        || /\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i.test(row.notes || '')
+                        || /\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i.test(row.product || '');
                     matchesDataset = Boolean(matchesArrum);
+                } else if (isKol2Filter) {
+                    const matchesKol2 = rDs === 'kol2'
+                        || (kol2Set && kol2Set.has(String(row.credit_no || '').trim()))
+                        || /\[KOL\s*2\b/i.test(row.notes || '')
+                        || /\bKOL\s*2\b.*?(?:80|90)/i.test(row.notes || '');
+                    matchesDataset = Boolean(matchesKol2);
                 } else {
                     matchesDataset = (row.dataset === filters.dataset);
                 }
@@ -577,7 +662,7 @@
 
             return (!filters.branch || row.branch === filters.branch) && matchesDataset
                 && (!filters.start || day >= filters.start) && (!filters.end || day <= filters.end)
-                && (!filters.officer || officerName(row).toLowerCase() === filters.officer.toLowerCase())
+                && (!filters.officer || isOfficerMatch(filters.officer, officerName(row)))
                 && (!term || [row.cif,row.credit_no,row.customer_name,row.officer_name,row.actor_name,row.branch].some(value => String(value??'').toLowerCase().includes(term)));
         });
     }
@@ -680,6 +765,7 @@
         customer, localDay, formatTime, mapUrl, googleMapUrl, csvCell, recapCsv, filterRecap,
         getLocation, stampPhoto,
         getOfficers, saveOfficers, setCloudOfficers, getOfficersForDataset, parseOfficersExcel, generateOfficersTemplate,
-        getWibHour, isPhotoAccessAllowed, getPhotoAccessStatus, getPendingOfficers
+        getWibHour, isPhotoAccessAllowed, getPhotoAccessStatus, getPendingOfficers,
+        normalizeOfficerName, isOfficerMatch
     });
 }());

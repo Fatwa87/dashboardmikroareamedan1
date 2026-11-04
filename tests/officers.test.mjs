@@ -499,4 +499,161 @@ test('FollowupCore getPendingOfficers groups unsubmitted officers per category (
     assert.deepEqual(allResult.byCategory.npl.pendingOfficers, ['HENDRA WIJAYA']);
 });
 
+test('FollowupCore getPendingOfficers accurately removes officers with punctuation, dots, prefixes, and Arrum cross-loans', () => {
+    const {core} = setupCore();
+
+    core.saveOfficers({
+        kol1: ['TONI PRIADI', 'JIMMY RAFAEL K', 'M FATHUR RAKHMAN'],
+        lar: ['FAHRUL ISMAIL', 'AZRIL ALFIS', 'ESTER YETTY NORA MAGDALENA NAULI S'],
+        npl: ['MHD BAGUS RIZKY ARSYADIN', 'HENDIKO SITUNGKIR'],
+        arrumExp: ['M RIFAL KAUTSAR', 'NUR SALIM']
+    });
+
+    const rows = [
+        // 1. JIMMY RAFAEL K submitted with a trailing dot: "JIMMY RAFAEL K."
+        {
+            id: '10',
+            dataset: 'kol1',
+            branch: 'MEDAN',
+            officer_name: 'JIMMY RAFAEL K.',
+            credit_no: '1001',
+            captured_at: '2026-11-04T02:00:00Z'
+        },
+        // 2. M FATHUR RAKHMAN submitted with an initial dot: "M. FATHUR RAKHMAN" on an Arrum product
+        {
+            id: '11',
+            dataset: 'kol1',
+            branch: 'MEDAN',
+            officer_name: 'M. FATHUR RAKHMAN',
+            product: 'ARRUM EXPRESS LOAN',
+            credit_no: '1002',
+            notes: '[Arrum Exspres Loan] Janji bayar',
+            captured_at: '2026-11-04T02:30:00Z'
+        },
+        // 3. FAHRUL ISMAIL submitted with role prefix: "AO FAHRUL ISMAIL"
+        {
+            id: '12',
+            dataset: 'lar',
+            branch: 'BINJAI',
+            officer_name: 'AO FAHRUL ISMAIL',
+            credit_no: '2001',
+            captured_at: '2026-11-04T03:00:00Z'
+        },
+        // 4. ESTER YETTY submitted with trailing period in initial: "ESTER YETTY NORA MAGDALENA NAULI S." on an Arrum loan in LAR
+        {
+            id: '13',
+            dataset: 'lar',
+            branch: 'BINJAI',
+            officer_name: 'ESTER YETTY NORA MAGDALENA NAULI S.',
+            product: 'ARRUM EXPRESS LOAN',
+            credit_no: '2002',
+            captured_at: '2026-11-04T03:30:00Z'
+        },
+        // 5. M RIFAL KAUTSAR submitted in Arrum with initial dot: "M. RIFAL KAUTSAR"
+        {
+            id: '14',
+            dataset: 'arrumExp',
+            branch: 'MEDAN',
+            officer_name: 'M. RIFAL KAUTSAR',
+            credit_no: '3001',
+            captured_at: '2026-11-04T04:00:00Z'
+        },
+        // 6. MHD BAGUS RIZKY ARSYADIN submitted in NPL with initial dot: "MHD. BAGUS RIZKY ARSYADIN"
+        {
+            id: '15',
+            dataset: 'npl',
+            branch: 'MEDAN',
+            officer_name: 'MHD. BAGUS RIZKY ARSYADIN',
+            credit_no: '4001',
+            captured_at: '2026-11-04T04:30:00Z'
+        }
+    ];
+
+    const result = toHost(core.getPendingOfficers(rows, {
+        scope: 'today',
+        date: '2026-11-04'
+    }));
+
+    // KOL 1:
+    // JIMMY RAFAEL K and M FATHUR RAKHMAN submitted -> Completed!
+    // TONI PRIADI has NOT submitted -> Remains Pending!
+    assert.equal(result.byCategory.kol1.completedCount, 2);
+    assert.equal(result.byCategory.kol1.pendingCount, 1);
+    assert.deepEqual(result.byCategory.kol1.pendingOfficers, ['TONI PRIADI']);
+    assert.ok(!result.byCategory.kol1.pendingOfficers.includes('JIMMY RAFAEL K'));
+    assert.ok(!result.byCategory.kol1.pendingOfficers.includes('M FATHUR RAKHMAN'));
+
+    // LAR:
+    // FAHRUL ISMAIL and ESTER YETTY submitted -> Completed!
+    // AZRIL ALFIS has NOT submitted -> Remains Pending!
+    assert.equal(result.byCategory.lar.completedCount, 2);
+    assert.equal(result.byCategory.lar.pendingCount, 1);
+    assert.deepEqual(result.byCategory.lar.pendingOfficers, ['AZRIL ALFIS']);
+    assert.ok(!result.byCategory.lar.pendingOfficers.includes('FAHRUL ISMAIL'));
+    assert.ok(!result.byCategory.lar.pendingOfficers.includes('ESTER YETTY NORA MAGDALENA NAULI S'));
+
+    // NPL:
+    // MHD BAGUS RIZKY ARSYADIN submitted -> Completed!
+    // HENDIKO SITUNGKIR has NOT submitted -> Remains Pending!
+    assert.equal(result.byCategory.npl.completedCount, 1);
+    assert.equal(result.byCategory.npl.pendingCount, 1);
+    assert.deepEqual(result.byCategory.npl.pendingOfficers, ['HENDIKO SITUNGKIR']);
+    assert.ok(!result.byCategory.npl.pendingOfficers.includes('MHD BAGUS RIZKY ARSYADIN'));
+
+    // Arrum Exspres Loan:
+    // M RIFAL KAUTSAR submitted -> Completed!
+    // NUR SALIM has NOT submitted -> Remains Pending!
+    assert.equal(result.byCategory.arrumExp.completedCount, 1);
+    assert.equal(result.byCategory.arrumExp.pendingCount, 1);
+    assert.deepEqual(result.byCategory.arrumExp.pendingOfficers, ['NUR SALIM']);
+    assert.ok(!result.byCategory.arrumExp.pendingOfficers.includes('M RIFAL KAUTSAR'));
+});
+
+test('FollowupCore supports KOL 2 ( 80 s.d 90 hari ) labels, officers and filterRecap', async () => {
+    const { core } = setupCore();
+
+    assert.equal(core.LABELS.kol2, 'KOL 2 ( 80 s.d 90 hari )');
+    const kol2Officers = core.getOfficersForDataset('kol2');
+    assert.ok(Array.isArray(kol2Officers) && kol2Officers.length > 0);
+
+    const rows = [
+        {
+            id: '1',
+            dataset: 'kol2',
+            branch: 'MEDAN',
+            credit_no: '101',
+            customer_name: 'NASABAH KOL2 A',
+            officer_name: 'FAHRUL ISMAIL',
+            captured_at: '2026-10-26T02:00:00Z',
+            notes: 'Kunjungan nasabah tunggakan 85 hari'
+        },
+        {
+            id: '2',
+            dataset: 'lar',
+            branch: 'MEDAN',
+            credit_no: '102',
+            customer_name: 'NASABAH KOL2 B',
+            officer_name: 'AZRIL ALFIS',
+            captured_at: '2026-10-26T03:00:00Z',
+            notes: '[KOL 2 (80 s.d 90 hari)] Tindak lanjut nasabah mendekati NPL'
+        },
+        {
+            id: '3',
+            dataset: 'lar',
+            branch: 'MEDAN',
+            credit_no: '103',
+            customer_name: 'NASABAH LAR BIASA',
+            officer_name: 'FAHRUL ISMAIL',
+            captured_at: '2026-10-26T04:00:00Z',
+            notes: 'Nasabah tunggakan 15 hari'
+        }
+    ];
+
+    const filtered = core.filterRecap(rows, { dataset: 'kol2' });
+    assert.equal(filtered.length, 2);
+    assert.equal(filtered[0].id, '1');
+    assert.equal(filtered[1].id, '2');
+});
+
+
 

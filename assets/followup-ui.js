@@ -348,6 +348,11 @@
           ...capture,
           ...details
         });
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('dashboard_followup_submitted', {
+            detail: saved
+          }));
+        }
         if (mounted.current) onSaved(saved);
       } catch (error) {
         if (mounted.current) setError(`Bukti belum tersimpan: ${error.message}`);
@@ -548,6 +553,10 @@
         if (String(item.branch || '').toLowerCase() !== b) return false;
         if (String(item.credit_no || '') !== cn) return false;
         if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+        if (ds === 'kol2' || ds.includes('kol2') || ds.includes('kol 2')) {
+          const itemDs = String(item.dataset || '').toLowerCase();
+          return itemDs === 'kol2' || /\[KOL\s*2\b/i.test(item.notes || '') || itemDs === 'lar';
+        }
         return String(item.dataset || '').toLowerCase() === ds;
       }).length;
     };
@@ -840,7 +849,27 @@
       const ds = String(r.dataset || '').toLowerCase();
       if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
       if (arrumCreditNos.has(String(r.credit_no || '').trim())) return true;
-      if (/ARRUM\s*EXPR?ES\s*LOAN/i.test(r.notes || '') || /ARRUM\s*EXPR?ES\s*LOAN/i.test(r.product || '')) return true;
+      const notes = String(r.notes || '');
+      const product = String(r.product || r.subProduk || r['SUB PRODUK'] || r['SUB_PRODUK'] || r.Produk || '');
+      const arrumRegex = /\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i;
+      if (arrumRegex.test(notes) || arrumRegex.test(product)) return true;
+      if (/ARRUM/i.test(notes) && /(?:EXPRESS|EXSPRES|EXPRES|EXP)/i.test(notes)) return true;
+      if (/ARRUM/i.test(product) && /(?:EXPRESS|EXSPRES|EXPRES|EXP)/i.test(product)) return true;
+      return false;
+    };
+    const kol2CreditNos = useMemo(() => {
+      if (typeof window !== 'undefined' && window.kol2CreditNos instanceof Set) {
+        return window.kol2CreditNos;
+      }
+      return new Set();
+    }, []);
+    const isRowKol2 = r => {
+      if (!r) return false;
+      const ds = String(r.dataset || '').toLowerCase();
+      if (ds === 'kol2' || ds.includes('kol2') || ds.includes('kol 2')) return true;
+      if (kol2CreditNos.has(String(r.credit_no || '').trim())) return true;
+      const notes = String(r.notes || '');
+      if (/\[KOL\s*2\b/i.test(notes) || /\bKOL\s*2\b.*?(?:80|90)/i.test(notes)) return true;
       return false;
     };
     const load = async () => {
@@ -861,24 +890,37 @@
     useEffect(() => {
       mounted.current = true;
       load();
+      const handleFollowupUpdate = () => {
+        load();
+      };
+      if (typeof window !== 'undefined') {
+        window.addEventListener('dashboard_followup_submitted', handleFollowupUpdate);
+        window.addEventListener('dashboard_officers_updated', handleFollowupUpdate);
+      }
       return () => {
         mounted.current = false;
         generation.current++;
         pdfController.current?.abort();
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('dashboard_followup_submitted', handleFollowupUpdate);
+          window.removeEventListener('dashboard_officers_updated', handleFollowupUpdate);
+        }
       };
     }, []);
     const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
     const visible = useMemo(() => {
       const activeFilters = {
         ...filters,
-        arrumCreditNos
+        arrumCreditNos,
+        kol2CreditNos
       };
       return core && typeof core.filterRecap === 'function' ? core.filterRecap(safeRows, activeFilters) : safeRows;
-    }, [safeRows, filters, arrumCreditNos]);
+    }, [safeRows, filters, arrumCreditNos, kol2CreditNos]);
     const branches = [...new Set(safeRows.map(row => row.branch).filter(Boolean))].sort();
     const officersList = useMemo(() => [...new Set(safeRows.map(r => core && typeof core.officerName === 'function' ? core.officerName(r) : r?.officer_name || r?.actor_name || '').filter(Boolean))].sort(), [safeRows]);
     const countKol1 = useMemo(() => safeRows.filter(r => r && r.dataset === 'kol1').length, [safeRows]);
-    const countLar = useMemo(() => safeRows.filter(r => r && r.dataset === 'lar').length, [safeRows]);
+    const countLar = useMemo(() => safeRows.filter(r => r && r.dataset === 'lar' && !isRowKol2(r)).length, [safeRows, isRowKol2]);
+    const countKol2 = useMemo(() => safeRows.filter(isRowKol2).length, [safeRows, isRowKol2]);
     const countNpl = useMemo(() => safeRows.filter(r => r && r.dataset === 'npl').length, [safeRows]);
     const countArrumExp = useMemo(() => safeRows.filter(isRowArrumExp).length, [safeRows, arrumCreditNos]);
     const todayDay = core?.localDay ? core.localDay(new Date()) : new Date().toISOString().slice(0, 10);
@@ -1436,6 +1478,12 @@
       className: "fas fa-clock-rotate-left mr-1.5 text-[10px]"
     }), "LAR (", countLar, ")"), /*#__PURE__*/React.createElement("button", {
       type: "button",
+      onClick: () => change('dataset', 'kol2'),
+      className: `px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${filters.dataset === 'kol2' ? 'bg-amber-600 text-white shadow-xs' : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300'}`
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-hourglass-half mr-1.5 text-[10px]"
+    }), "KOL 2 (", countKol2, ")"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
       onClick: () => change('dataset', 'npl'),
       className: `px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${filters.dataset === 'npl' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'}`
     }, /*#__PURE__*/React.createElement("i", {
@@ -1474,11 +1522,13 @@
       className: `${field} mt-1`
     }, /*#__PURE__*/React.createElement("option", {
       value: ""
-    }, "Semua Kategori (KOL 1, LAR, NPL, Arrum Exspres)"), /*#__PURE__*/React.createElement("option", {
+    }, "Semua Kategori (KOL 1, LAR, KOL 2, NPL, Arrum Exspres)"), /*#__PURE__*/React.createElement("option", {
       value: "kol1"
     }, "KOL 1 (1\u201310 Hari)"), /*#__PURE__*/React.createElement("option", {
       value: "lar"
     }, "LAR (11\u201330 Hari)"), /*#__PURE__*/React.createElement("option", {
+      value: "kol2"
+    }, "KOL 2 ( 80 s.d 90 hari )"), /*#__PURE__*/React.createElement("option", {
       value: "npl"
     }, "NPL (KOL 3\u20135)"), /*#__PURE__*/React.createElement("option", {
       value: "arrumExp"
@@ -1542,7 +1592,7 @@
       className: "p-4"
     }, /*#__PURE__*/React.createElement("span", {
       className: "font-bold"
-    }, isRowArrumExp(row) ? 'Arrum Exspres Loan' : getLabel(row.dataset)), /*#__PURE__*/React.createElement("br", null), row.branch), /*#__PURE__*/React.createElement("td", {
+    }, isRowArrumExp(row) ? 'Arrum Exspres Loan' : isRowKol2(row) ? 'KOL 2 ( 80 s.d 90 hari )' : getLabel(row.dataset)), /*#__PURE__*/React.createElement("br", null), row.branch), /*#__PURE__*/React.createElement("td", {
       className: "p-4 font-mono whitespace-nowrap"
     }, row.cif, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("strong", null, row.credit_no)), /*#__PURE__*/React.createElement("td", {
       className: "p-4 font-bold"

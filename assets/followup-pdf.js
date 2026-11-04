@@ -89,7 +89,7 @@
         const pageWidth=doc.internal.pageSize.getWidth(),pageHeight=doc.internal.pageSize.getHeight();
         const uniqueCustomers=new Set(rows.map(row=>`${row.branch}|${row.credit_no}`)).size;
         const printedAt=pdfText(Core.formatTime(now));
-        const catLabel = (filters.dataset === 'arrumExp' || filters.dataset === 'arrum') ? 'Arrum Exspres Loan' : (Core.LABELS[filters.dataset] || 'Semua Kategori');
+        const catLabel = (filters.dataset === 'arrumExp' || filters.dataset === 'arrum') ? 'Arrum Exspres Loan' : (filters.dataset === 'kol2' ? 'KOL 2 ( 80 s.d 90 hari )' : (Core.LABELS[filters.dataset] || 'Semua Kategori'));
         const subtitle=pdfText(`Cabang: ${filters.branch||'Semua Cabang'} | Kategori: ${catLabel}`);
         const period=pdfText(`Periode foto: ${filters.start||'Awal'} s.d. ${filters.end||'Sekarang'}`+(filters.search?` | Pencarian: ${filters.search.slice(0,70)}`:''));
         const header=()=>{
@@ -108,8 +108,9 @@
         doc.autoTable({
             head:[['No.','Waktu Foto (WIB)','Nasabah / Identitas Kredit','Kategori / Cabang','Nama Petugas','Lokasi / Catatan Tindak Lanjut','Foto Tindak Lanjut']],
             body:rows.map((row,index)=>{
-                const isArrum = row.dataset === 'arrumExp' || row.dataset === 'arrum' || (filters.arrumCreditNos && filters.arrumCreditNos.has(String(row.credit_no).trim())) || /ARRUM\s*EXPR?ES\s*LOAN/i.test(row.notes || '');
-                const rowCat = isArrum ? 'Arrum Exspres Loan' : (Core.LABELS[row.dataset] || row.dataset || '-');
+                const isArrum = row.dataset === 'arrumExp' || row.dataset === 'arrum' || (filters.arrumCreditNos && filters.arrumCreditNos.has(String(row.credit_no).trim())) || /\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i.test(row.notes || '');
+                const isKol2 = row.dataset === 'kol2' || (filters.kol2CreditNos && filters.kol2CreditNos.has(String(row.credit_no).trim())) || /\[KOL\s*2\b/i.test(row.notes || '');
+                const rowCat = isArrum ? 'Arrum Exspres Loan' : isKol2 ? 'KOL 2 ( 80 s.d 90 hari )' : (Core.LABELS[row.dataset] || row.dataset || '-');
                 return [
                     String(index+1),pdfText(Core.formatTime(row.captured_at)).replace(', ','\n'),
                     pdfText(`${row.customer_name}\nCIF: ${row.cif||'-'}\nKredit: ${row.credit_no}`),

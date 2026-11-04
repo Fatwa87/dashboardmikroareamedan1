@@ -2025,7 +2025,7 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [followupOpen, setFollowupOpen] = useState(false);
 
-            const displayColumns = (type === 'kol1' || type === 'arrumExp')
+            const displayColumns = (type === 'kol1' || type === 'arrumExp' || type === 'kol2')
                 ? ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG']
                 : type === 'klaim'
                     ? ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM']
@@ -2071,6 +2071,10 @@
                 lar: {
                     bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900',
                     badge: 'bg-orange-600 hover:bg-orange-700', iconBg: 'bg-orange-100', iconText: 'text-orange-700'
+                },
+                kol2: {
+                    bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-950',
+                    badge: 'bg-amber-500 hover:bg-amber-600', iconBg: 'bg-amber-100', iconText: 'text-amber-800'
                 },
                 npl: {
                     bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-900',
@@ -2132,7 +2136,7 @@
                                     <h2 className="text-2xl font-black text-slate-900 font-heading">
                                         Pemantauan Khusus {title}
                                     </h2>
-                                    <p className="text-xs text-slate-500 font-medium">{type === 'arrumExp' ? 'Data Excel yang sudah difilter khusus produk Arrum Express Loan' : 'Data Excel yang sudah difilter otomatis sesuai kolektibilitas'}</p>
+                                    <p className="text-xs text-slate-500 font-medium">{type === 'arrumExp' ? 'Data Excel yang sudah difilter khusus produk Arrum Express Loan' : type === 'kol2' ? 'Data Excel yang sudah difilter khusus Kolektibilitas 2 (80 s.d 90 hari tunggakan)' : 'Data Excel yang sudah difilter otomatis sesuai kolektibilitas'}</p>
                                 </div>
                             </div>
                         </div>
@@ -2173,7 +2177,7 @@
                             >
                                 <i className="fas fa-file-pdf mr-2"></i> Cetak PDF
                             </button>
-                            {['kol1', 'lar', 'npl', 'arrumExp'].includes(type) && (
+                            {['kol1', 'lar', 'kol2', 'npl', 'arrumExp'].includes(type) && (
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -2860,7 +2864,8 @@
 
             const microColumnSets = {
                 kol1: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
-                lar: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
+                lar: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
+                kol2: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
                 npl: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG'],
                 klaim: ['TGL_DATA', 'CIF', 'NO_KONTRAK', 'CUSTOMER_NM', 'SUB PRODUK', 'TGL_KREDIT', 'TENOR', 'TGL_JATUH_TEMPO', 'KOLEKTIBILITAS', 'HARI_TUNGGAKAN', 'OSL', 'OUTLET', 'OUTLET_CHANNELING', 'CABANG', 'TINDAK LANJUT KLAIM']
             };
@@ -2873,7 +2878,17 @@
                 const workbook = window.XLSX.read(await file.arrayBuffer(), { cellDates: true });
                 const requiredColumns = type === 'MIKRO' ? microInputColumns : reportColumns;
                 const aliases = type === 'MIKRO'
-                    ? { 'CABANG': ['CABANG', 'NAMA CABANG'], 'TINDAK LANJUT KLAIM': ['TINDAK LANJUT KLAIM', 'TINDAK LANJUT'] }
+                    ? {
+                        'CABANG': ['CABANG', 'NAMA CABANG'],
+                        'TINDAK LANJUT KLAIM': ['TINDAK LANJUT KLAIM', 'TINDAK LANJUT'],
+                        'HARI_TUNGGAKAN': ['HARI_TUNGGAKAN', 'HARI TUNGGAKAN', 'HARI TUNGGAK', 'DPD', 'JML HARI TUNGGAKAN', 'TUNGGAKAN HARI'],
+                        'KOLEKTIBILITAS': ['KOLEKTIBILITAS', 'KOL', 'KOLEK', 'STATUS KOLEKTIBILITAS', 'KOL BUKET'],
+                        'TGL_JATUH_TEMPO': ['TGL_JATUH_TEMPO', 'TGL JATUH TEMPO', 'JATUH TEMPO', 'TANGGAL JATUH TEMPO'],
+                        'TGL_KREDIT': ['TGL_KREDIT', 'TGL KREDIT', 'TANGGAL KREDIT', 'TGL PENCAIRAN'],
+                        'NO_KONTRAK': ['NO_KONTRAK', 'NO KONTRAK', 'NO KREDIT', 'NOMOR KONTRAK', 'NO REKENING'],
+                        'CUSTOMER_NM': ['CUSTOMER_NM', 'CUSTOMER NM', 'NAMA NASABAH', 'NAMA CUSTOMER', 'NAMA'],
+                        'SUB PRODUK': ['SUB PRODUK', 'SUB_PRODUK', 'PRODUK', 'JENIS PRODUK']
+                    }
                     : { 'NAMA_CABANG': ['NAMA_CABANG', 'NAMA CABANG', 'CABANG'] };
                 let bestMatch = null;
 
@@ -2932,12 +2947,25 @@
                     const sourceRows = await parseExcelUpload(file, type);
                     if (type === 'MIKRO') {
                         const readNumber = value => {
-                            const cleaned = String(value ?? '').replace(/[^0-9-]/g, '');
+                            if (value === undefined || value === null || value === '') return NaN;
+                            if (typeof value === 'number') return isNaN(value) ? NaN : Math.round(value);
+                            const str = String(value).trim().replace(/,/g, '.');
+                            const match = str.match(/^-?\d+(?:\.\d+)?/);
+                            if (match) return Math.round(Number(match[0]));
+                            const cleaned = str.replace(/[^0-9-]/g, '');
                             return cleaned ? Number(cleaned) : NaN;
                         };
-                        const kol1Rows = sourceRows.filter(row => readNumber(row.KOLEKTIBILITAS) === 1 && readNumber(row.HARI_TUNGGAKAN) >= 1 && readNumber(row.HARI_TUNGGAKAN) <= 10).map(row => Object.fromEntries(microColumnSets.kol1.map(column => [column, row[column] ?? ''])));
-                        const larRows = sourceRows.filter(row => readNumber(row.KOLEKTIBILITAS) === 2 && readNumber(row.HARI_TUNGGAKAN) >= 11 && readNumber(row.HARI_TUNGGAKAN) <= 30).map(row => Object.fromEntries(microColumnSets.lar.map(column => [column, row[column] ?? ''])));
-                        const nplRows = sourceRows.filter(row => [3, 4, 5].includes(readNumber(row.KOLEKTIBILITAS))).map(row => Object.fromEntries(microColumnSets.npl.map(column => [column, row[column] ?? ''])));
+                        const isKol2Row = row => {
+                            const hari = readNumber(row.HARI_TUNGGAKAN || row['HARI TUNGGAKAN'] || row.hari_tunggakan || row.DPD);
+                            return !isNaN(hari) && hari >= 80 && hari <= 90;
+                        };
+                        const kol1Rows = sourceRows.filter(row => !isKol2Row(row) && readNumber(row.KOLEKTIBILITAS) === 1 && readNumber(row.HARI_TUNGGAKAN) >= 1 && readNumber(row.HARI_TUNGGAKAN) <= 10).map(row => Object.fromEntries(microColumnSets.kol1.map(column => [column, row[column] ?? ''])));
+                        const larRows = sourceRows.filter(row => {
+                            const kol = readNumber(row.KOLEKTIBILITAS);
+                            const hari = readNumber(row.HARI_TUNGGAKAN || row['HARI TUNGGAKAN'] || row.hari_tunggakan || row.DPD);
+                            return isKol2Row(row) || (kol === 2 && hari >= 11 && hari <= 30) || (kol === 2 && isNaN(hari));
+                        }).map(row => Object.fromEntries(microColumnSets.lar.map(column => [column, row[column] ?? ''])));
+                        const nplRows = sourceRows.filter(row => !isKol2Row(row) && [3, 4, 5].includes(readNumber(row.KOLEKTIBILITAS))).map(row => Object.fromEntries(microColumnSets.npl.map(column => [column, row[column] ?? ''])));
                         const klaimRows = sourceRows.filter(row => String(row['TINDAK LANJUT KLAIM'] || '').trim().toLowerCase().replace(/[_\s]+/g, ' ') === 'segera lakukan klaim').map(row => Object.fromEntries(microColumnSets.klaim.map(column => [column, row[column] ?? ''])));
 
                         await syncExcelDataToCloud([
@@ -2947,7 +2975,9 @@
                             { type: 'KLAIM', rows: klaimRows }
                         ]);
                         setKol1Data(kol1Rows); setLarData(larRows); setNplData(nplRows); setKlaimData(klaimRows);
-                        showToast(`Data tersimpan: KOL 1 ${kol1Rows.length}, LAR ${larRows.length}, NPL ${nplRows.length}, klaim ${klaimRows.length} nasabah.`);
+                        const kol2Count = larRows.filter(r => { const h = readNumber(r.HARI_TUNGGAKAN); return h >= 80 && h <= 90; }).length;
+                        const larOnlyCount = larRows.length - kol2Count;
+                        showToast(`Data tersimpan: KOL 1 ${kol1Rows.length}, LAR ${larOnlyCount}, KOL 2 (80-90) ${kol2Count}, NPL ${nplRows.length}, klaim ${klaimRows.length} nasabah.`);
                     } else {
                         const reportRows = sourceRows.filter(row => row.NAMA_CABANG).map(row => Object.fromEntries(reportColumns.map(column => [column, row[column] ?? ''])));
                         if (reportRows.length === 0) throw new Error('Tidak ada baris report dengan nama cabang.');
@@ -5516,6 +5546,589 @@ const DashboardAsuransiView = ({ showToast }) => {
         };
 
         /* ==========================================================
+           FALLBACK DATA: KOL 2 ( 80 s.d 90 hari ) dari Data Mikro
+        ========================================================== */
+        const FALLBACK_KOL2_DATA = Object.freeze([
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1039007375",
+                    "NO_KONTRAK": "K203426890000484",
+                    "CUSTOMER_NM": "SUMIATI",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-06-26",
+                    "TENOR": 12,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 80,
+                    "OSL": 50000000,
+                    "OUTLET": "CP BINJAI",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP BINJAI",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1030814962",
+                    "NO_KONTRAK": "1003425870000124",
+                    "CUSTOMER_NM": "DWI ARMAYA",
+                    "SUB PRODUK": "KREASI ULTRA MIKRO",
+                    "TGL_KREDIT": "2025-05-07",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 85,
+                    "OSL": 4000000,
+                    "OUTLET": "CP BINJAI",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP BINJAI",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1025900231",
+                    "NO_KONTRAK": "K216524890000036",
+                    "CUSTOMER_NM": "PARLUHUTAN SILABAN",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2024-01-31",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 86,
+                    "OSL": 41664600,
+                    "OUTLET": "CP GAHARU",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP GAHARU",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1001318549",
+                    "NO_KONTRAK": "K216524890000085",
+                    "CUSTOMER_NM": "VOLMA WANDUS SILALAHI",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2024-03-28",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 80,
+                    "OSL": 58331400,
+                    "OUTLET": "CP GAHARU",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP GAHARU",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1001455089",
+                    "NO_KONTRAK": "1018926870000116",
+                    "CUSTOMER_NM": "REFIDA DELIANNA TARIGAN",
+                    "SUB PRODUK": "KREASI ULTRA MIKRO",
+                    "TGL_KREDIT": "2026-07-09",
+                    "TENOR": 12,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 81,
+                    "OSL": 6666600,
+                    "OUTLET": "CP HELVETIA",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP HELVETIA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1026002106",
+                    "NO_KONTRAK": "K219123890000026",
+                    "CUSTOMER_NM": "PANGIHUTAN NAINGGOLAN",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2023-09-20",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 86,
+                    "OSL": 2776000,
+                    "OUTLET": "UPC SEI SIKAMBING",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP HELVETIA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1008884524",
+                    "NO_KONTRAK": "K213626890000248",
+                    "CUSTOMER_NM": "HARTA ULINA BR SEMBIRING",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-03-31",
+                    "TENOR": 6,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 87,
+                    "OSL": 100000000,
+                    "OUTLET": "CP KABANJAHE",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP KABANJAHE",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "6007844675",
+                    "NO_KONTRAK": "6007526860000921",
+                    "CUSTOMER_NM": "IWAN DESMORI SIMBOLON",
+                    "SUB PRODUK": "ARRUM EXPRESS LOAN",
+                    "TGL_KREDIT": "2026-01-23",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 81,
+                    "OSL": 40276563,
+                    "OUTLET": "CP KABANJAHE",
+                    "OUTLET_CHANNELING": "CPS AR.HAKIM",
+                    "CABANG": "CP KABANJAHE",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1010308198",
+                    "NO_KONTRAK": "K217626890000202",
+                    "CUSTOMER_NM": "ARMULYA DWI ZUANDA  S PD",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-06-03",
+                    "TENOR": 4,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 82,
+                    "OSL": 26500000,
+                    "OUTLET": "CP KP LALANG",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP KP LALANG",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1036822496",
+                    "NO_KONTRAK": "K217626890000020",
+                    "CUSTOMER_NM": "YUSRI",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-02-07",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 87,
+                    "OSL": 21250000,
+                    "OUTLET": "CP KP LALANG",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP KP LALANG",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1029816487",
+                    "NO_KONTRAK": "K213025890000094",
+                    "CUSTOMER_NM": "DEDI ANDRI PUTRA",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2025-03-05",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 88,
+                    "OSL": 5250000,
+                    "OUTLET": "CP KRAKATAU",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP KRAKATAU",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1015062734",
+                    "NO_KONTRAK": "1013524870000059",
+                    "CUSTOMER_NM": "EVA JULIYANTI PURBA",
+                    "SUB PRODUK": "KREASI MULTI GUNA",
+                    "TGL_KREDIT": "2024-07-05",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 82,
+                    "OSL": 6943000,
+                    "OUTLET": "UPC BAYANGKARA",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP KRAKATAU",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1026722886",
+                    "NO_KONTRAK": "K201125890000047",
+                    "CUSTOMER_NM": "MARIA JUNIWATI HUTAURUK",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2025-03-27",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 83,
+                    "OSL": 26388700,
+                    "OUTLET": "UPC BELAWAN",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP LABUHAN DELI",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1015518828",
+                    "NO_KONTRAK": "1000925870000175",
+                    "CUSTOMER_NM": "ARKA AR SIDDIQ",
+                    "SUB PRODUK": "KREASI ULTRA MIKRO",
+                    "TGL_KREDIT": "2025-09-03",
+                    "TENOR": 18,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 88,
+                    "OSL": 5666000,
+                    "OUTLET": "CP LABUHAN DELI",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP LABUHAN DELI",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1002335555",
+                    "NO_KONTRAK": "K214224890000043",
+                    "CUSTOMER_NM": "AHMAD ZEN",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2024-05-03",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 89,
+                    "OSL": 7575502,
+                    "OUTLET": "UPC ADAM MALIK",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN KARYA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1025283618",
+                    "NO_KONTRAK": "1013925870000066",
+                    "CUSTOMER_NM": "SURYA PRATAMA",
+                    "SUB PRODUK": "KREASI MULTI GUNA",
+                    "TGL_KREDIT": "2025-03-08",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 83,
+                    "OSL": 5583678,
+                    "OUTLET": "CP MEDAN KARYA",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN KARYA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "9005631526",
+                    "NO_KONTRAK": "K220426890000061",
+                    "CUSTOMER_NM": "STEPHANIE SIRAIT",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-07-31",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 84,
+                    "OSL": 126388800,
+                    "OUTLET": "CP MEDAN PETISAH",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN PETISAH",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1006029788",
+                    "NO_KONTRAK": "1020824870000077",
+                    "CUSTOMER_NM": "RAMAYANI",
+                    "SUB PRODUK": "KREASI ULTRA MIKRO",
+                    "TGL_KREDIT": "2024-09-09",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 89,
+                    "OSL": 4999200,
+                    "OUTLET": "UPC MEDAN FAIR",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN PETISAH",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1027025209",
+                    "NO_KONTRAK": "K212426890000152",
+                    "CUSTOMER_NM": "MUHAMMAD LIZAR ANGKAT  SE",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-05-05",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 90,
+                    "OSL": 177777600,
+                    "OUTLET": "CP MEDAN SUNGGAL",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN SUNGGAL",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1014463111",
+                    "NO_KONTRAK": "1012425870000043",
+                    "CUSTOMER_NM": "IR TIEN DEVA YANTI PANGARIBUAN",
+                    "SUB PRODUK": "KREASI MULTI GUNA",
+                    "TGL_KREDIT": "2025-02-06",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 84,
+                    "OSL": 9375000,
+                    "OUTLET": "CP MEDAN SUNGGAL",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN SUNGGAL",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1005670361",
+                    "NO_KONTRAK": "1000226870000012",
+                    "CUSTOMER_NM": "IVO NILA SARI",
+                    "SUB PRODUK": "KREASI ULTRA MIKRO",
+                    "TGL_KREDIT": "2026-01-31",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 85,
+                    "OSL": 9916200,
+                    "OUTLET": "UPC TITI KUNING",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP MEDAN UTAMA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "6001982799",
+                    "NO_KONTRAK": "6007525860008140",
+                    "CUSTOMER_NM": "USMAN",
+                    "SUB PRODUK": "ARRUM EXPRESS LOAN",
+                    "TGL_KREDIT": "2025-07-07",
+                    "TENOR": 18,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 90,
+                    "OSL": 2219428,
+                    "OUTLET": "CP MEDAN UTAMA",
+                    "OUTLET_CHANNELING": "CPS AR.HAKIM",
+                    "CABANG": "CP MEDAN UTAMA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1026303194",
+                    "NO_KONTRAK": "K201623890000207",
+                    "CUSTOMER_NM": "MARTONIUS PERKASA A GINTING",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2023-11-09",
+                    "TENOR": 48,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 80,
+                    "OSL": 17500000,
+                    "OUTLET": "CP PANCUR BATU",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP PANCUR BATU",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1021651893",
+                    "NO_KONTRAK": "K201823890000039",
+                    "CUSTOMER_NM": "JEREMIA BARUS",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2023-08-02",
+                    "TENOR": 48,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 85,
+                    "OSL": 12601700,
+                    "OUTLET": "UPC SELAYANG",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP PANCUR BATU",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "9005595631",
+                    "NO_KONTRAK": "K202926890000138",
+                    "CUSTOMER_NM": "M SYUKRI MATONDANG",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-04-08",
+                    "TENOR": 6,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 86,
+                    "OSL": 120000000,
+                    "OUTLET": "CP PKL BRANDAN",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP PKL BRANDAN",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1009478432",
+                    "NO_KONTRAK": "K203324890000101",
+                    "CUSTOMER_NM": "TRI NUGRAHA RAMADHANA",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2024-08-23",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 80,
+                    "OSL": 33331700,
+                    "OUTLET": "UPC BESITANG",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP PKL BRANDAN",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1024889092",
+                    "NO_KONTRAK": "1018526870000042",
+                    "CUSTOMER_NM": "NORMANSYAH NST",
+                    "SUB PRODUK": "KREASI MULTI GUNA",
+                    "TGL_KREDIT": "2026-03-04",
+                    "TENOR": 18,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 81,
+                    "OSL": 4666600,
+                    "OUTLET": "CP PULO BRAYAN",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP PULO BRAYAN",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "9005555253",
+                    "NO_KONTRAK": "K218526890000013",
+                    "CUSTOMER_NM": "LINDA NOVITA SARI",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2026-01-09",
+                    "TENOR": 18,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 86,
+                    "OSL": 44444000,
+                    "OUTLET": "CP PULO BRAYAN",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP PULO BRAYAN",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1027403535",
+                    "NO_KONTRAK": "K215425890000680",
+                    "CUSTOMER_NM": "BERJAN PAKPAHAN",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2025-07-25",
+                    "TENOR": 48,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 87,
+                    "OSL": 188241172,
+                    "OUTLET": "CP SIDIKALANG",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP SIDIKALANG",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1013183028",
+                    "NO_KONTRAK": "K215425890000458",
+                    "CUSTOMER_NM": "ELVI KARTINA BR SINAGA",
+                    "SUB PRODUK": "KUPEDES PEGADAIAN",
+                    "TGL_KREDIT": "2025-05-21",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 81,
+                    "OSL": 69999000,
+                    "OUTLET": "CP SIDIKALANG",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP SIDIKALANG",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "1026666470",
+                    "NO_KONTRAK": "1002724870000017",
+                    "CUSTOMER_NM": "ZULFAN",
+                    "SUB PRODUK": "KREASI MULTI GUNA",
+                    "TGL_KREDIT": "2024-01-08",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 82,
+                    "OSL": 4665700,
+                    "OUTLET": "UPC KUALA BEGUMIT",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CP TANJUNG PURA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "6007676700",
+                    "NO_KONTRAK": "6007524860027762",
+                    "CUSTOMER_NM": "IRWANSYAH",
+                    "SUB PRODUK": "ARRUM EXPRESS LOAN",
+                    "TGL_KREDIT": "2024-09-07",
+                    "TENOR": 24,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 87,
+                    "OSL": 1655428,
+                    "OUTLET": "CP TANJUNG PURA",
+                    "OUTLET_CHANNELING": "CPS AR.HAKIM",
+                    "CABANG": "CP TANJUNG PURA",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "6008031531",
+                    "NO_KONTRAK": "6007524850001591",
+                    "CUSTOMER_NM": "ABDUL RAHIM BATUBARA",
+                    "SUB PRODUK": "AMANAH",
+                    "TGL_KREDIT": "2024-03-22",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 88,
+                    "OSL": 5619717,
+                    "OUTLET": "CPS AR.HAKIM",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CPS AR.HAKIM",
+                    "_dataset": "lar"
+          },
+          {
+                    "TGL_DATA": "2026-10-19",
+                    "CIF": "6007856561",
+                    "NO_KONTRAK": "6007823860000849",
+                    "CUSTOMER_NM": "M SAFRUDDIN",
+                    "SUB PRODUK": "ARRUM EXPRESS LOAN",
+                    "TGL_KREDIT": "2023-11-24",
+                    "TENOR": 36,
+                    "TGL_JATUH_TEMPO": "",
+                    "KOLEKTIBILITAS": 2,
+                    "HARI_TUNGGAKAN": 82,
+                    "OSL": 822563,
+                    "OUTLET": "UPS AHMAD YANI SIANTAR",
+                    "OUTLET_CHANNELING": "",
+                    "CABANG": "CPS AR.HAKIM",
+                    "_dataset": "lar"
+          }        ]);
+
+        /* ==========================================================
            MAIN APP CONTAINER
         ========================================================== */
         const App = () => {
@@ -5577,6 +6190,63 @@ const DashboardAsuransiView = ({ showToast }) => {
                 return prod === 'ARRUM EXPRESS LOAN' || prod === 'ARRUM EXSPRES LOAN' ||
                     (prod.includes('ARRUM') && (prod.includes('EXPRESS') || prod.includes('EXSPRES')));
             };
+
+            const displayLarData = useMemo(() => {
+                const readNumber = value => {
+                    if (value === undefined || value === null || value === '') return NaN;
+                    if (typeof value === 'number') return isNaN(value) ? NaN : Math.round(value);
+                    const str = String(value).trim().replace(/,/g, '.');
+                    const match = str.match(/^-?\d+(?:\.\d+)?/);
+                    if (match) return Math.round(Number(match[0]));
+                    const cleaned = str.replace(/[^0-9-]/g, '');
+                    return cleaned ? Number(cleaned) : NaN;
+                };
+                return (larData || []).filter(item => {
+                    const hari = readNumber(item.HARI_TUNGGAKAN || item['HARI TUNGGAKAN'] || item.hari_tunggakan || item.HariTunggakan || item.DPD || item.dpd);
+                    if (!isNaN(hari) && hari >= 80 && hari <= 90) return false;
+                    return true;
+                });
+            }, [larData]);
+
+            const kol2Data = useMemo(() => {
+                const seen = new Set();
+                const result = [];
+                const readNumber = value => {
+                    if (value === undefined || value === null || value === '') return NaN;
+                    if (typeof value === 'number') return isNaN(value) ? NaN : Math.round(value);
+                    const str = String(value).trim().replace(/,/g, '.');
+                    const match = str.match(/^-?\d+(?:\.\d+)?/);
+                    if (match) return Math.round(Number(match[0]));
+                    const cleaned = str.replace(/[^0-9-]/g, '');
+                    return cleaned ? Number(cleaned) : NaN;
+                };
+                const sources = [
+                    ...(larData || []).map(r => ({ ...r, _dataset: r._dataset || 'lar' })),
+                    ...(nplData || []).map(r => ({ ...r, _dataset: r._dataset || 'npl' })),
+                    ...(kol1Data || []).map(r => ({ ...r, _dataset: r._dataset || 'kol1' }))
+                ];
+                for (const item of sources) {
+                    if (!item) continue;
+                    const hari = readNumber(item.HARI_TUNGGAKAN || item['HARI TUNGGAKAN'] || item.hari_tunggakan || item.HariTunggakan || item.DPD || item.dpd);
+                    if (!isNaN(hari) && hari >= 80 && hari <= 90) {
+                        const key = String(item.NO_KONTRAK || item.NoKredit || item._id || JSON.stringify(item));
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            result.push({ ...item, _dataset: item._dataset || 'lar' });
+                        }
+                    }
+                }
+                if (result.length === 0) {
+                    return FALLBACK_KOL2_DATA;
+                }
+                return result;
+            }, [larData, nplData, kol1Data]);
+
+            useEffect(() => {
+                if (typeof window !== 'undefined') {
+                    window.kol2CreditNos = new Set(kol2Data.map(item => String(item.NO_KONTRAK || item.NoKredit || '').trim()).filter(Boolean));
+                }
+            }, [kol2Data]);
 
             const arrumExpData = useMemo(() => {
                 const seen = new Set();
@@ -5992,6 +6662,12 @@ const DashboardAsuransiView = ({ showToast }) => {
                                         <i className="fas fa-clock-rotate-left w-6 text-orange-400 text-sm"></i> LAR 11 - 30 Hari
                                     </button>
                                     <button
+                                        onClick={() => { setActiveTab('repKol2'); setIsSidebarOpen(false) }}
+                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repKol2' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                    >
+                                        <i className="fas fa-hourglass-half w-6 text-amber-300 text-sm"></i> KOL 2 ( 80 s.d 90 hari )
+                                    </button>
+                                    <button
                                         onClick={() => { setActiveTab('repNpl'); setIsSidebarOpen(false) }}
                                         className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repNpl' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                     >
@@ -6276,9 +6952,21 @@ const DashboardAsuransiView = ({ showToast }) => {
                                 <TableNasabahView
                                     title="LAR (11-30 Hari)"
                                     currentUser={currentUser}
-                                    data={larData}
+                                    data={displayLarData}
                                     type="lar"
                                     icon="fa-clock-rotate-left"
+                                    syncFromSupabase={syncFromSupabase}
+                                    showToast={showToast}
+                                    setIsLoading={setIsLoading}
+                                />
+                            )}
+                            {activeTab === 'repKol2' && (
+                                <TableNasabahView
+                                    title="KOL 2 ( 80 s.d 90 hari )"
+                                    currentUser={currentUser}
+                                    data={kol2Data}
+                                    type="kol2"
+                                    icon="fa-hourglass-half"
                                     syncFromSupabase={syncFromSupabase}
                                     showToast={showToast}
                                     setIsLoading={setIsLoading}

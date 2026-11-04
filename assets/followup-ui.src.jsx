@@ -216,6 +216,9 @@
                 const DB = getDB();
                 if (!DB || typeof DB.saveFollowup !== 'function') throw new Error('Koneksi database belum siap. Muat ulang halaman.');
                 const saved=await DB.saveFollowup({...capture,...details});
+                if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                    window.dispatchEvent(new CustomEvent('dashboard_followup_submitted', { detail: saved }));
+                }
                 if(mounted.current)onSaved(saved);
             }
             catch(error){if(mounted.current)setError(`Bukti belum tersimpan: ${error.message}`);}
@@ -383,6 +386,10 @@
                 if (String(item.branch || '').toLowerCase() !== b) return false;
                 if (String(item.credit_no || '') !== cn) return false;
                 if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
+                if (ds === 'kol2' || ds.includes('kol2') || ds.includes('kol 2')) {
+                    const itemDs = String(item.dataset || '').toLowerCase();
+                    return itemDs === 'kol2' || /\[KOL\s*2\b/i.test(item.notes || '') || itemDs === 'lar';
+                }
                 return String(item.dataset || '').toLowerCase() === ds;
             }).length;
         };
@@ -629,7 +636,29 @@
             const ds = String(r.dataset || '').toLowerCase();
             if (ds === 'arrumexp' || ds === 'arrum' || ds.includes('arrum')) return true;
             if (arrumCreditNos.has(String(r.credit_no || '').trim())) return true;
-            if (/ARRUM\s*EXPR?ES\s*LOAN/i.test(r.notes || '') || /ARRUM\s*EXPR?ES\s*LOAN/i.test(r.product || '')) return true;
+            const notes = String(r.notes || '');
+            const product = String(r.product || r.subProduk || r['SUB PRODUK'] || r['SUB_PRODUK'] || r.Produk || '');
+            const arrumRegex = /\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i;
+            if (arrumRegex.test(notes) || arrumRegex.test(product)) return true;
+            if (/ARRUM/i.test(notes) && /(?:EXPRESS|EXSPRES|EXPRES|EXP)/i.test(notes)) return true;
+            if (/ARRUM/i.test(product) && /(?:EXPRESS|EXSPRES|EXPRES|EXP)/i.test(product)) return true;
+            return false;
+        };
+
+        const kol2CreditNos = useMemo(() => {
+            if (typeof window !== 'undefined' && window.kol2CreditNos instanceof Set) {
+                return window.kol2CreditNos;
+            }
+            return new Set();
+        }, []);
+
+        const isRowKol2 = (r) => {
+            if (!r) return false;
+            const ds = String(r.dataset || '').toLowerCase();
+            if (ds === 'kol2' || ds.includes('kol2') || ds.includes('kol 2')) return true;
+            if (kol2CreditNos.has(String(r.credit_no || '').trim())) return true;
+            const notes = String(r.notes || '');
+            if (/\[KOL\s*2\b/i.test(notes) || /\bKOL\s*2\b.*?(?:80|90)/i.test(notes)) return true;
             return false;
         };
 
@@ -644,17 +673,35 @@
             catch(error){if(mounted.current&&current===generation.current)setError(error.message);}
             finally{if(mounted.current&&current===generation.current)setLoading(false);}
         };
-        useEffect(()=>{mounted.current=true;load();return()=>{mounted.current=false;generation.current++;pdfController.current?.abort();};},[]);
+        useEffect(()=>{
+            mounted.current=true;
+            load();
+            const handleFollowupUpdate = () => { load(); };
+            if (typeof window !== 'undefined') {
+                window.addEventListener('dashboard_followup_submitted', handleFollowupUpdate);
+                window.addEventListener('dashboard_officers_updated', handleFollowupUpdate);
+            }
+            return()=>{
+                mounted.current=false;
+                generation.current++;
+                pdfController.current?.abort();
+                if (typeof window !== 'undefined') {
+                    window.removeEventListener('dashboard_followup_submitted', handleFollowupUpdate);
+                    window.removeEventListener('dashboard_officers_updated', handleFollowupUpdate);
+                }
+            };
+        },[]);
 
         const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
         const visible=useMemo(()=>{
-            const activeFilters = { ...filters, arrumCreditNos };
+            const activeFilters = { ...filters, arrumCreditNos, kol2CreditNos };
             return (core && typeof core.filterRecap === 'function' ? core.filterRecap(safeRows,activeFilters) : safeRows);
-        },[safeRows,filters,arrumCreditNos]);
+        },[safeRows,filters,arrumCreditNos,kol2CreditNos]);
         const branches=[...new Set(safeRows.map(row=>row.branch).filter(Boolean))].sort();
         const officersList=useMemo(()=>[...new Set(safeRows.map(r => (core && typeof core.officerName === 'function' ? core.officerName(r) : (r?.officer_name || r?.actor_name || ''))).filter(Boolean))].sort(),[safeRows]);
         const countKol1=useMemo(()=>safeRows.filter(r=>r && r.dataset==='kol1').length,[safeRows]);
-        const countLar=useMemo(()=>safeRows.filter(r=>r && r.dataset==='lar').length,[safeRows]);
+        const countLar=useMemo(()=>safeRows.filter(r=>r && r.dataset==='lar' && !isRowKol2(r)).length,[safeRows,isRowKol2]);
+        const countKol2=useMemo(()=>safeRows.filter(isRowKol2).length,[safeRows,isRowKol2]);
         const countNpl=useMemo(()=>safeRows.filter(r=>r && r.dataset==='npl').length,[safeRows]);
         const countArrumExp=useMemo(()=>safeRows.filter(isRowArrumExp).length,[safeRows,arrumCreditNos]);
 
@@ -1249,6 +1296,18 @@
                     </button>
                     <button
                         type="button"
+                        onClick={() => change('dataset', 'kol2')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${
+                            filters.dataset === 'kol2'
+                                ? 'bg-amber-600 text-white shadow-xs'
+                                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300'
+                        }`}
+                    >
+                        <i className="fas fa-hourglass-half mr-1.5 text-[10px]"></i>
+                        KOL 2 ({countKol2})
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => change('dataset', 'npl')}
                         className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center ${
                             filters.dataset === 'npl'
@@ -1286,9 +1345,10 @@
             <div className="bg-white p-4 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
                 <label className="text-xs font-bold text-slate-500">Cabang<select aria-label="Cabang rekap tindak lanjut" value={filters.branch} onChange={event=>change('branch',event.target.value)} className={`${field} mt-1`}><option value="">Semua Cabang</option>{branches.map(branch=><option key={branch}>{branch}</option>)}</select></label>
                 <label className="text-xs font-bold text-slate-500">Kategori<select aria-label="Kategori rekap tindak lanjut" value={filters.dataset} onChange={event=>change('dataset',event.target.value)} className={`${field} mt-1`}>
-                    <option value="">Semua Kategori (KOL 1, LAR, NPL, Arrum Exspres)</option>
+                    <option value="">Semua Kategori (KOL 1, LAR, KOL 2, NPL, Arrum Exspres)</option>
                     <option value="kol1">KOL 1 (1–10 Hari)</option>
                     <option value="lar">LAR (11–30 Hari)</option>
+                    <option value="kol2">KOL 2 ( 80 s.d 90 hari )</option>
                     <option value="npl">NPL (KOL 3–5)</option>
                     <option value="arrumExp">Arrum Exspres Loan</option>
                 </select></label>
@@ -1301,7 +1361,7 @@
             {loading?<p className="text-sm text-slate-500 p-6">Memuat bukti tindak lanjut...</p>:<div className="bg-white border border-slate-200 rounded-3xl overflow-x-auto">
                 <table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-500"><tr>{['Waktu Foto (WIB)','Kategori / Cabang','CIF / No Kredit','Nama Nasabah','Nama Petugas','Lokasi','Bukti / Catatan'].map(label=><th key={label} className="p-4 whitespace-nowrap">{label}</th>)}</tr></thead>
                     <tbody className="divide-y divide-slate-100">{visible.map(row=><tr key={row.id}>
-                        <td className="p-4 whitespace-nowrap">{core?.formatTime ? core.formatTime(row.captured_at) : row.captured_at}</td><td className="p-4"><span className="font-bold">{isRowArrumExp(row) ? 'Arrum Exspres Loan' : getLabel(row.dataset)}</span><br/>{row.branch}</td>
+                        <td className="p-4 whitespace-nowrap">{core?.formatTime ? core.formatTime(row.captured_at) : row.captured_at}</td><td className="p-4"><span className="font-bold">{isRowArrumExp(row) ? 'Arrum Exspres Loan' : isRowKol2(row) ? 'KOL 2 ( 80 s.d 90 hari )' : getLabel(row.dataset)}</span><br/>{row.branch}</td>
                         <td className="p-4 font-mono whitespace-nowrap">{row.cif}<br/><strong>{row.credit_no}</strong></td><td className="p-4 font-bold">{row.customer_name}</td><td className="p-4"><p className="font-bold">{(core?.officerName ? core.officerName(row) : (row.officer_name || row.actor_name))}</p><p className="text-slate-400 mt-1">Akun: {row.actor_name}</p>{!row.officer_name&&<p className="text-amber-700 mt-1">Nama belum diisi (data lama)</p>}</td>
                         <td className="p-4 whitespace-nowrap">
                             {hasValidCoords(row.latitude, row.longitude) ? (

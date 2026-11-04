@@ -176,9 +176,11 @@
         if(!window.FollowupCore)throw new Error('Modul tindak lanjut belum siap. Muat ulang halaman.');
         const details=window.FollowupCore.validateFollowupDetails(capture.notes,capture.officerName);
         const record = capture.customer;
-        const finalNotes = (capture.dataset === 'arrumExp' || capture.dataset === 'arrum') && !/ARRUM\s*EXPR?ES\s*LOAN/i.test(details.notes)
-            ? `[Arrum Exspres Loan] ${details.notes}`
-            : details.notes;
+        const isArrum = (capture.dataset === 'arrumExp' || capture.dataset === 'arrum') && !/\bARRUM\b.*?(?:EXPRESS|EXSPRES|EXPRES|EXP)\b/i.test(details.notes);
+        const isKol2 = (capture.dataset === 'kol2' || capture.dataset === 'kol 2') && !/\bKOL\s*2\b/i.test(details.notes);
+        let finalNotes = details.notes;
+        if (isArrum) finalNotes = `[Arrum Exspres Loan] ${finalNotes}`;
+        if (isKol2) finalNotes = `[KOL 2 (80 s.d 90 hari)] ${finalNotes}`;
         let draft;
         try {
             draft = checked(await getClient().rpc('begin_credit_followup', {
@@ -188,9 +190,16 @@
                 p_accuracy_m:capture.location.accuracy, p_map_included:capture.mapIncluded, p_notes:finalNotes, p_officer_name:details.officerName
             }));
         } catch (rpcError) {
-            if ((capture.dataset === 'arrumExp' || capture.dataset === 'arrum') && record?._dataset && record._dataset !== capture.dataset) {
+            if ((capture.dataset === 'arrumExp' || capture.dataset === 'arrum' || capture.dataset === 'kol2' || capture.dataset === 'kol 2') && record?._dataset && record._dataset !== capture.dataset) {
                 draft = checked(await getClient().rpc('begin_credit_followup', {
                     p_id:capture.id, p_dataset:record._dataset, p_source_record_id:record.sourceId,
+                    p_credit_no:record.creditNo, p_branch:record.branch, p_captured_at:capture.capturedAt,
+                    p_latitude:capture.location.latitude, p_longitude:capture.location.longitude,
+                    p_accuracy_m:capture.location.accuracy, p_map_included:capture.mapIncluded, p_notes:finalNotes, p_officer_name:details.officerName
+                }));
+            } else if (capture.dataset === 'kol2' || capture.dataset === 'kol 2') {
+                draft = checked(await getClient().rpc('begin_credit_followup', {
+                    p_id:capture.id, p_dataset:'lar', p_source_record_id:record.sourceId,
                     p_credit_no:record.creditNo, p_branch:record.branch, p_captured_at:capture.capturedAt,
                     p_latitude:capture.location.latitude, p_longitude:capture.location.longitude,
                     p_accuracy_m:capture.location.accuracy, p_map_included:capture.mapIncluded, p_notes:finalNotes, p_officer_name:details.officerName
