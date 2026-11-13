@@ -216,52 +216,316 @@
             animation: slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        .sidebar-container {
-            width: 290px;
-            height: 100vh;
-            position: fixed;
-            left: 0;
+        /* ==========================================================
+           ANIMATIONS: Login Portal Premium (Pegadaian Area Medan 1)
+        ========================================================== */
+        @keyframes loginFadeUp {
+            0% {
+                opacity: 0;
+                transform: translateY(22px) scale(0.98);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes auroraFlow1 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.45; }
+            50% { transform: translate3d(60px, -35px, 0) scale(1.18); opacity: 0.7; }
+        }
+
+        @keyframes auroraFlow2 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.35; }
+            50% { transform: translate3d(-50px, 45px, 0) scale(1.15); opacity: 0.6; }
+        }
+
+        @keyframes auroraFlow3 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.3; }
+            50% { transform: translate3d(40px, 50px, 0) scale(1.1); opacity: 0.55; }
+        }
+
+        @keyframes floatGentle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); opacity: 0.4; }
+            50% { transform: scale(1.1); opacity: 0.75; }
+        }
+
+        @keyframes buttonShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .animate-login-card {
+            animation: loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-aurora-1 { animation: auroraFlow1 18s ease-in-out infinite; }
+        .animate-aurora-2 { animation: auroraFlow2 22s ease-in-out infinite; }
+        .animate-aurora-3 { animation: auroraFlow3 20s ease-in-out infinite; }
+        .animate-float-gentle { animation: floatGentle 4s ease-in-out infinite; }
+        .animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
+        .animate-shake-error { animation: shakeError 0.4s ease-in-out; }
+
+        .btn-shimmer-effect {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-shimmer-effect::after {
+            content: "";
+            position: absolute;
             top: 0;
-            background: linear-gradient(180deg, #0b1329 0%, #080d1e 100%);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-            overflow-y: auto;
+            left: 0;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+            transform: translateX(-100%) skewX(-20deg);
+            pointer-events: none;
+        }
+        .btn-shimmer-effect:hover::after {
+            animation: buttonShimmer 1.2s ease-in-out infinite;
+        }
+
+        /* ==========================================================
+           GLASSY SIDEBAR V7 - COLLAPSIBLE & HOVER-EXPANDABLE (CodeXR)
+        ========================================================== */
+        .sidebar-container {
+            width: 84px; /* Compact icon dock by default on desktop */
+            height: calc(100vh - 2rem);
+            position: fixed;
+            left: 1rem;
+            top: 1rem;
+            bottom: 1rem;
+            background: linear-gradient(155deg, rgba(15, 23, 42, 0.92) 0%, rgba(6, 11, 23, 0.97) 100%);
+            backdrop-filter: blur(28px) saturate(190%);
+            -webkit-backdrop-filter: blur(28px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 2.25rem;
+            overflow: visible; /* Allows floating tooltips to pop out */
             z-index: 50;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.65),
+                        0 0 0 1px rgba(255, 255, 255, 0.08),
+                        0 0 35px -5px rgba(16, 185, 129, 0.2);
+            transition: width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+                        box-shadow 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* Glass specular top highlight */
+        .sidebar-container::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            border-radius: 2.25rem 2.25rem 0 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            pointer-events: none;
+        }
+
+        /* When hovered or pinned: smoothly expands to full width (284px) */
+        .sidebar-container:hover,
+        .sidebar-container.expanded {
+            width: 284px;
+            box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.8),
+                        0 0 0 1px rgba(255, 255, 255, 0.16),
+                        0 0 50px -5px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Main Content Margin */
         .main-content {
-            margin-left: 290px;
-            width: calc(100% - 290px);
+            margin-left: calc(84px + 1.75rem);
+            width: calc(100% - 84px - 1.75rem);
             min-height: 100vh;
-            padding: 1.75rem 2.25rem;
-            transition: all 0.3s ease;
+            padding: 1.5rem 2rem;
+            transition: margin-left 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+                        width 0.38s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        .main-content.sidebar-pinned {
+            margin-left: calc(284px + 1.75rem);
+            width: calc(100% - 284px - 1.75rem);
+        }
+
+        /* Smooth text reveal when expanding */
+        .sidebar-text {
+            opacity: 0;
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            transform: translateX(-12px);
+            pointer-events: none;
+            transition: opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+                        max-width 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sidebar-container:hover .sidebar-text,
+        .sidebar-container.expanded .sidebar-text {
+            opacity: 1;
+            max-width: 200px;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        /* Section Header Divider & Text */
+        .sidebar-section-header {
+            opacity: 0;
+            max-height: 0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sidebar-container:hover .sidebar-section-header,
+        .sidebar-container.expanded .sidebar-section-header {
+            opacity: 1;
+            max-height: 36px;
+            margin-bottom: 0.5rem;
+            padding: 0 0.75rem;
+        }
+
+        /* Divider in compact mode */
+        .sidebar-mini-divider {
+            width: 28px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0.75rem auto;
+            transition: opacity 0.2s ease;
+        }
+
+        .sidebar-container:hover .sidebar-mini-divider,
+        .sidebar-container.expanded .sidebar-mini-divider {
+            display: none;
+        }
+
+        /* Floating Tooltip Pill (pops out in compact mode) */
+        .sidebar-nav-btn {
+            position: relative;
+        }
+
+        .sidebar-tooltip {
+            position: absolute;
+            left: calc(100% + 14px);
+            top: 50%;
+            transform: translateY(-50%) translateX(-8px);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: #f8fafc;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.4rem 0.8rem;
+            border-radius: 9999px;
+            white-space: nowrap;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.6), 0 0 12px rgba(16, 185, 129, 0.25);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 100;
+        }
+
+        .sidebar-tooltip::before {
+            content: "";
+            position: absolute;
+            right: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent rgba(15, 23, 42, 0.95) transparent transparent;
+        }
+
+        /* Show tooltip ONLY when sidebar is compact */
+        .sidebar-container:not(:hover):not(.expanded) .sidebar-nav-btn:hover .sidebar-tooltip {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+        }
+
+        .sidebar-container:hover .sidebar-tooltip,
+        .sidebar-container.expanded .sidebar-tooltip {
+            display: none !important;
+        }
+
+        /* Pin Toggle Button */
+        .sidebar-pin-btn {
+            opacity: 0;
+            transform: scale(0.85);
+            pointer-events: none;
+            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sidebar-container:hover .sidebar-pin-btn,
+        .sidebar-container.expanded .sidebar-pin-btn {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        /* Mobile adjustments */
         @media (max-width: 1024px) {
             .sidebar-container {
+                width: 284px !important;
+                height: 100vh;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                border-radius: 0 2rem 2rem 0;
                 transform: translateX(-100%);
-                box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
+                box-shadow: 15px 0 45px rgba(0, 0, 0, 0.6);
             }
-
             .sidebar-container.open {
                 transform: translateX(0);
             }
-
-            .main-content {
-                margin-left: 0;
-                width: 100%;
+            .sidebar-text {
+                opacity: 1 !important;
+                max-width: 200px !important;
+                transform: translateX(0) !important;
+                pointer-events: auto !important;
+            }
+            .sidebar-section-header {
+                opacity: 1 !important;
+                max-height: 36px !important;
+                margin-bottom: 0.5rem !important;
+                padding: 0 0.75rem !important;
+            }
+            .sidebar-mini-divider {
+                display: none !important;
+            }
+            .sidebar-tooltip {
+                display: none !important;
+            }
+            .sidebar-pin-btn {
+                display: none !important;
+            }
+            .main-content, .main-content.sidebar-pinned {
+                margin-left: 0 !important;
+                width: 100% !important;
                 padding: 1rem;
             }
-
             .mobile-overlay {
                 display: none;
                 position: fixed;
                 inset: 0;
-                background: rgba(11, 19, 41, 0.7);
+                background: rgba(11, 19, 41, 0.75);
+                backdrop-filter: blur(6px);
                 z-index: 45;
-                backdrop-filter: blur(4px);
             }
-
             .mobile-overlay.open {
                 display: block;
             }
@@ -752,41 +1016,54 @@
             };
 
             return (
-                <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-900 via-[#0a1628] to-[#042817]">
-                    <div className="absolute top-1/4 -left-20 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                    <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl pointer-events-none"></div>
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none"></div>
+                <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-100 via-emerald-50/50 to-teal-100/60 text-slate-800">
+                    {/* Fluid Aurora Glow Background (Light & Radiant) */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="animate-aurora-1 absolute -top-32 -left-32 w-[520px] h-[520px] rounded-full bg-emerald-400/25 blur-[100px]"></div>
+                        <div className="animate-aurora-2 absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-teal-400/25 blur-[110px]"></div>
+                        <div className="animate-aurora-3 absolute -bottom-32 left-1/4 w-[560px] h-[560px] rounded-full bg-emerald-300/30 blur-[120px]"></div>
+                        <div className="absolute inset-0 bg-[radial-gradient(rgba(16,185,129,0.12)_1px,transparent_1px)] [background-size:28px_28px] opacity-75"></div>
+                    </div>
 
-                    <div className="w-full max-w-md relative z-10">
-                        <div className="glass-card rounded-3xl p-8 md:p-10 shadow-2xl border border-white/20 relative backdrop-blur-2xl">
+                    <div className="w-full max-w-md relative z-10 animate-login-card">
+                        <div className="relative rounded-3xl p-8 sm:p-10 bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.12),0_10px_30px_-5px_rgba(16,185,129,0.15)]">
+                            {/* Glass Specular Top Highlight */}
+                            <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-3xl bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent"></div>
 
+                            {/* Header Branding */}
                             <div className="text-center mb-8">
-                                <div className="inline-block p-3 rounded-3xl bg-white shadow-md mb-4 hover:scale-105 transition-transform duration-300">
-                                    <RocketLogo size={80} />
+                                <div className="inline-flex items-center justify-center p-3 rounded-3xl bg-white shadow-lg shadow-emerald-500/10 border border-emerald-100 mb-4 animate-float-gentle relative group">
+                                    <div className="absolute inset-0 rounded-3xl bg-emerald-400/20 blur-md animate-pulse-glow"></div>
+                                    <div className="relative z-10 p-1">
+                                        <RocketLogo size={74} />
+                                    </div>
                                 </div>
-                                <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">
+                                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-heading">
                                     Portal Area Medan 1
                                 </h1>
-                                <p className="text-xs text-emerald-700 font-bold uppercase tracking-wider mt-1">
-                                    PT. Pegadaian • Mikro Juara 1
+                                <p className="text-xs text-emerald-700 font-extrabold uppercase tracking-widest mt-1.5 flex items-center justify-center">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 animate-ping"></span>
+                                    PT. Pegadaian • Mikro Juara
                                 </p>
                             </div>
 
+                            {/* Error notification */}
                             {(loginError || initialError) && (
-                                <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-700 p-3.5 rounded-2xl text-xs font-semibold flex items-center shadow-sm">
+                                <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-700 p-3.5 rounded-2xl text-xs font-semibold flex items-center shadow-sm animate-shake-error">
                                     <i className="fas fa-circle-exclamation text-base mr-2.5 flex-shrink-0 text-rose-500"></i>
                                     <span>{loginError || initialError}</span>
                                 </div>
                             )}
 
+                            {/* Login Form */}
                             <form onSubmit={processLogin} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                                         Username
                                     </label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                            <i className="fas fa-user-tie text-sm"></i>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                                            <i className="fas fa-user text-sm"></i>
                                         </div>
                                         <input
                                             type="text"
@@ -794,7 +1071,7 @@
                                             onChange={handleUsernameChange}
                                             aria-label="Username"
                                             autoComplete="username"
-                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition text-sm font-semibold text-slate-900 placeholder:text-slate-400"
+                                            className="w-full pl-10 pr-4 py-3 bg-slate-50/80 border border-slate-200/90 rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all duration-200 text-sm font-semibold text-slate-900 placeholder:text-slate-400 shadow-sm"
                                             placeholder="Masukkan username Anda"
                                             autoFocus
                                             required
@@ -803,11 +1080,11 @@
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                                         Password
                                     </label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
                                             <i className="fas fa-lock text-sm"></i>
                                         </div>
                                         <input
@@ -816,14 +1093,15 @@
                                             onChange={handlePasswordChange}
                                             aria-label="Password"
                                             autoComplete="current-password"
-                                            className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition text-sm font-semibold text-slate-900 placeholder:text-slate-400"
+                                            className="w-full pl-10 pr-11 py-3 bg-slate-50/80 border border-slate-200/90 rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all duration-200 text-sm font-semibold text-slate-900 placeholder:text-slate-400 shadow-sm"
                                             placeholder="Masukkan password"
                                             required
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors focus:outline-none"
+                                            tabIndex={-1}
                                         >
                                             <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
                                         </button>
@@ -833,14 +1111,16 @@
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="w-full disabled:opacity-60 mt-2 bg-gradient-to-r from-emerald-600 to-pegadaian-900 hover:from-emerald-500 hover:to-pegadaian-800 text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-emerald-700/30 flex items-center justify-center text-sm font-heading tracking-wide hover:translate-y-[-1px] active:translate-y-[0px]"
+                                    className="btn-shimmer-effect w-full disabled:opacity-60 mt-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3.5 px-4 rounded-2xl transition-all duration-300 shadow-[0_10px_25px_-5px_rgba(5,150,105,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(5,150,105,0.55)] flex items-center justify-center text-sm font-heading tracking-wide hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/30"
                                 >
-                                    <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-arrow-right-to-bracket'} mr-2`}></i> {submitting ? 'Memverifikasi akun...' : 'Masuk ke Dashboard'}
+                                    <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-arrow-right-to-bracket'} mr-2.5 text-base`}></i>
+                                    {submitting ? 'Memverifikasi akun...' : 'Masuk ke Dashboard'}
                                 </button>
                             </form>
 
-                            <div className="mt-8 pt-5 border-t border-slate-100 text-center">
-                                <p className="text-[11px] text-slate-400 font-medium">
+                            {/* Clean Footer */}
+                            <div className="mt-8 pt-5 border-t border-slate-200/80 text-center">
+                                <p className="text-[11px] text-slate-500 font-medium">
                                     &copy; 2026 PT. Pegadaian Area Medan 1 • Hak Cipta Dilindungi
                                 </p>
                             </div>
@@ -6161,6 +6441,20 @@ const DashboardAsuransiView = ({ showToast }) => {
             const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
             const [isLoading, setIsLoading] = useState(false);
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
+                try {
+                    return localStorage.getItem('pegadaian_sidebar_pinned') === 'true';
+                } catch (_) {
+                    return false;
+                }
+            });
+            const toggleSidebarPin = useCallback(() => {
+                setIsSidebarPinned(prev => {
+                    const next = !prev;
+                    try { localStorage.setItem('pegadaian_sidebar_pinned', String(next)); } catch (_) {}
+                    return next;
+                });
+            }, []);
 
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
             const [dbModal, setDbModal] = useState(false);
@@ -6572,210 +6866,337 @@ const DashboardAsuransiView = ({ showToast }) => {
 
                     <div className={`mobile-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
 
-                    <aside className={`sidebar-container ${isSidebarOpen ? 'open' : ''} flex flex-col justify-between text-slate-300`}>
-                        <div>
-                            <div className="p-6 border-b border-white/10 flex items-center space-x-3.5">
-                                <div className="p-1.5 rounded-2xl bg-white/10 shadow-sm border border-white/10">
-                                    <RocketLogo size={46} />
+                    <aside className={`sidebar-container ${isSidebarPinned ? 'expanded pinned' : ''} ${isSidebarOpen ? 'open' : ''} flex flex-col justify-between text-slate-300`}>
+                        {/* Top Header: Rocket Logo, Title & Pin Button */}
+                        <div className="p-4 border-b border-white/10 flex items-center justify-between overflow-hidden">
+                            <div className="flex items-center space-x-3 overflow-hidden">
+                                <div className="w-10 h-10 rounded-2xl bg-white/10 shadow-sm border border-white/10 flex items-center justify-center shrink-0">
+                                    <RocketLogo size={36} />
                                 </div>
-                                <div className="overflow-hidden">
-                                    <h2 className="font-black text-white text-base tracking-tight font-heading leading-tight truncate">
+                                <div className="sidebar-text min-w-0">
+                                    <h2 className="font-black text-white text-sm tracking-tight font-heading leading-tight truncate">
                                         AREA MEDAN 1
                                     </h2>
-                                    <p className="text-[11px] font-extrabold text-emerald-400 uppercase tracking-wider flex items-center mt-0.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
-                                        {isAdmin ? 'Administrator' : 'Account Officer'}
+                                    <p className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider flex items-center mt-0.5 truncate">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse shrink-0"></span>
+                                        PT. Pegadaian
                                     </p>
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                onClick={toggleSidebarPin}
+                                title={isSidebarPinned ? "Buka Kunci Sidebar (Otomatis Mengecil)" : "Kunci Sidebar Tetap Terbuka"}
+                                className={`sidebar-pin-btn w-7 h-7 rounded-xl flex items-center justify-center transition-all ${isSidebarPinned ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'}`}
+                            >
+                                <i className={`fas fa-thumbtack text-[11px] ${isSidebarPinned ? 'rotate-[-45deg]' : ''}`}></i>
+                            </button>
+                        </div>
 
-                            <div className="p-4 overflow-y-auto hide-scroll space-y-6">
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-3 font-heading">
-                                        Dashboard
-                                    </p>
-                                    <button
-                                        onClick={() => { setActiveTab('dashReal'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'dashReal' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-chart-pie w-6 text-sm opacity-80"></i> Realisasi (Admin)
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('dashEst'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'dashEst' ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-chart-line w-6 text-sm opacity-80"></i> Estimasi (AO)
-                                    </button>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-3 font-heading">
-                                        Input Transaksi
-                                    </p>
-                                    <button
-                                        onClick={() => { setActiveTab('inReal'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center justify-between text-xs font-bold ${activeTab === 'inReal' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <span className="flex items-center"><i className="fas fa-file-invoice-dollar w-6 text-sm"></i> Input Realisasi</span>
-                                        <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-lg">+ BARU</span>
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('inEst'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center justify-between text-xs font-bold ${activeTab === 'inEst' ? 'bg-orange-500 text-white shadow-md shadow-orange-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <span className="flex items-center"><i className="fas fa-pen-to-square w-6 text-sm"></i> Input Estimasi</span>
-                                        <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-lg">PROSPEK</span>
-                                    </button>
-                                </div>
-
-                                <div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 px-3 font-heading flex items-center justify-between">
-                                            <span>Performa & Ranking</span>
-                                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-500/30">HOT</span>
-                                        </p>
-                                        <button
-                                            onClick={() => { setActiveTab('leaderboard'); setIsSidebarOpen(false) }}
-                                            className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center justify-between text-xs font-bold ${activeTab === 'leaderboard' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black shadow-lg shadow-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                        >
-                                            <span className="flex items-center">
-                                                <i className={`fas fa-trophy w-6 text-sm ${activeTab === 'leaderboard' ? 'text-slate-950' : 'text-amber-400'}`}></i>
-                                                Klasemen Juara
-                                            </span>
-                                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${activeTab === 'leaderboard' ? 'bg-black/20 text-slate-950' : 'bg-amber-400/20 text-amber-300'}`}>17 CABANG</span>
-                                        </button>
-                                    </div>
-
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-3 font-heading">
-                                        Monitoring Kredit (Excel)
-                                    </p>
-                                    <button
-                                        onClick={() => { setActiveTab('repKol1'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repKol1' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-triangle-exclamation w-6 text-amber-400 text-sm"></i> KOL 1 (1-10 Hari)
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('repLar'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repLar' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-clock-rotate-left w-6 text-orange-400 text-sm"></i> LAR 11 - 30 Hari
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('repKol2'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repKol2' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-hourglass-half w-6 text-amber-300 text-sm"></i> KOL 2 ( 80 s.d 90 hari )
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('repNpl'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repNpl' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-circle-exclamation w-6 text-rose-400 text-sm"></i> NPL (KOL 3-5)
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('repArrumExp'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repArrumExp' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-bolt-lightning w-6 text-indigo-400 text-sm"></i> Arrum Exspres Loan
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('repKlaim'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repKlaim' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-shield-halved w-6 text-teal-400 text-sm"></i> Tindak Lanjut Klaim
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('repReal'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'repReal' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <i className="fas fa-chart-simple w-6 text-blue-400 text-sm"></i> Report Realisasi
-                                    </button>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-3 font-heading flex items-center justify-between">
-                                        <span>Layanan & Portofolio</span>
-                                        <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/30 font-bold">BARU</span>
-                                    </p>
-                                    <button
-                                        onClick={() => { setActiveTab('simulasiRtt'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center justify-between text-xs font-bold ${activeTab === 'simulasiRtt' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <span className="flex items-center">
-                                            <i className="fas fa-calculator w-6 text-emerald-400 text-sm"></i> Simulasi RTT
+                        {/* Middle Scrollable Nav Items */}
+                        <div className="flex-1 p-2.5 overflow-y-auto hide-scroll space-y-4">
+                            {/* Section 1: Dashboard */}
+                            <div>
+                                <p className="sidebar-section-header text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 font-heading">
+                                    Dashboard
+                                </p>
+                                <button
+                                    onClick={() => { setActiveTab('dashReal'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'dashReal' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'dashReal' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400 group-hover:text-emerald-400'}`}>
+                                            <i className="fas fa-chart-pie text-sm"></i>
                                         </span>
-                                        <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded-lg">CALC</span>
-                                    </button>
-                                    <button
-                                        onClick={() => { setActiveTab('dashAsuransi'); setIsSidebarOpen(false) }}
-                                        className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center justify-between text-xs font-bold ${activeTab === 'dashAsuransi' ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <span className="flex items-center">
-                                            <i className="fas fa-shield-heart w-6 text-cyan-400 text-sm"></i> Asuransi Klaim & Premi
+                                        <span className="sidebar-text ml-2.5 truncate">Realisasi (Admin)</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">Realisasi (Admin)</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('dashEst'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'dashEst' ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'dashEst' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400 group-hover:text-orange-400'}`}>
+                                            <i className="fas fa-chart-line text-sm"></i>
                                         </span>
-                                        <span className="text-[9px] bg-cyan-400/20 text-cyan-300 px-1.5 py-0.5 rounded-md font-bold">LOOKER</span>
-                                    </button>
-                                </div>
+                                        <span className="sidebar-text ml-2.5 truncate">Estimasi (AO)</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">Estimasi (AO)</span>
+                                </button>
+                            </div>
+                            <div className="sidebar-mini-divider"></div>
 
-                                {isAdmin && (
+                            {/* Section 2: Input Transaksi */}
+                            <div>
+                                <p className="sidebar-section-header text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 font-heading">
+                                    Input Transaksi
+                                </p>
+                                <button
+                                    onClick={() => { setActiveTab('inReal'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'inReal' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'inReal' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400 group-hover:text-emerald-400'}`}>
+                                            <i className="fas fa-file-invoice-dollar text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Input Realisasi</span>
+                                    </span>
+                                    <span className="sidebar-text text-[9px] bg-white/20 px-2 py-0.5 rounded-lg shrink-0 ml-1">+ BARU</span>
+                                    <span className="sidebar-tooltip">Input Realisasi</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('inEst'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'inEst' ? 'bg-orange-500 text-white shadow-md shadow-orange-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'inEst' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400 group-hover:text-orange-400'}`}>
+                                            <i className="fas fa-pen-to-square text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Input Estimasi</span>
+                                    </span>
+                                    <span className="sidebar-text text-[9px] bg-white/20 px-2 py-0.5 rounded-lg shrink-0 ml-1">PROSPEK</span>
+                                    <span className="sidebar-tooltip">Input Estimasi</span>
+                                </button>
+                            </div>
+                            <div className="sidebar-mini-divider"></div>
+
+                            {/* Section 3: Performa & Ranking */}
+                            <div>
+                                <p className="sidebar-section-header text-[10px] font-black text-amber-400 uppercase tracking-widest px-2 font-heading flex items-center justify-between">
+                                    <span>Performa & Ranking</span>
+                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-500/30">HOT</span>
+                                </p>
+                                <button
+                                    onClick={() => { setActiveTab('leaderboard'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'leaderboard' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black shadow-lg shadow-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'leaderboard' ? 'bg-slate-950/20 text-slate-950' : 'bg-white/[0.04] text-amber-400 group-hover:scale-110'}`}>
+                                            <i className="fas fa-trophy text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Klasemen Juara</span>
+                                    </span>
+                                    <span className={`sidebar-text text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shrink-0 ml-1 ${activeTab === 'leaderboard' ? 'bg-black/20 text-slate-950' : 'bg-amber-400/20 text-amber-300'}`}>17 CABANG</span>
+                                    <span className="sidebar-tooltip">Klasemen Juara (17 Cabang)</span>
+                                </button>
+                            </div>
+                            <div className="sidebar-mini-divider"></div>
+
+                            {/* Section 4: Monitoring Kredit */}
+                            <div>
+                                <p className="sidebar-section-header text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 font-heading">
+                                    Monitoring Kredit (Excel)
+                                </p>
+                                <button
+                                    onClick={() => { setActiveTab('repKol1'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repKol1' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repKol1' ? 'bg-amber-500/30 text-amber-300' : 'bg-white/[0.04] text-amber-400'}`}>
+                                            <i className="fas fa-triangle-exclamation text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">KOL 1 (1-10 Hari)</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">KOL 1 (1-10 Hari)</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('repLar'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repLar' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repLar' ? 'bg-orange-500/30 text-orange-300' : 'bg-white/[0.04] text-orange-400'}`}>
+                                            <i className="fas fa-clock-rotate-left text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">LAR 11 - 30 Hari</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">LAR 11 - 30 Hari</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('repKol2'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repKol2' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repKol2' ? 'bg-amber-500/30 text-amber-300' : 'bg-white/[0.04] text-amber-300'}`}>
+                                            <i className="fas fa-hourglass-half text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">KOL 2 ( 80 s.d 90 hari )</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">KOL 2 ( 80 s.d 90 hari )</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('repNpl'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repNpl' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repNpl' ? 'bg-rose-500/30 text-rose-300' : 'bg-white/[0.04] text-rose-400'}`}>
+                                            <i className="fas fa-circle-exclamation text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">NPL (KOL 3-5)</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">NPL (KOL 3-5)</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('repArrumExp'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repArrumExp' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repArrumExp' ? 'bg-indigo-500/30 text-indigo-300' : 'bg-white/[0.04] text-indigo-400'}`}>
+                                            <i className="fas fa-bolt-lightning text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Arrum Exspres Loan</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">Arrum Exspres Loan</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('repKlaim'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repKlaim' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repKlaim' ? 'bg-teal-500/30 text-teal-300' : 'bg-white/[0.04] text-teal-400'}`}>
+                                            <i className="fas fa-shield-halved text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Tindak Lanjut Klaim</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">Tindak Lanjut Klaim</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('repReal'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'repReal' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'repReal' ? 'bg-blue-500/30 text-blue-300' : 'bg-white/[0.04] text-blue-400'}`}>
+                                            <i className="fas fa-chart-simple text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Report Realisasi</span>
+                                    </span>
+                                    <span className="sidebar-tooltip">Report Realisasi</span>
+                                </button>
+                            </div>
+                            <div className="sidebar-mini-divider"></div>
+
+                            {/* Section 5: Layanan & Portofolio */}
+                            <div>
+                                <p className="sidebar-section-header text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 font-heading flex items-center justify-between">
+                                    <span>Layanan & Portofolio</span>
+                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/30 font-bold">BARU</span>
+                                </p>
+                                <button
+                                    onClick={() => { setActiveTab('simulasiRtt'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'simulasiRtt' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'simulasiRtt' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-emerald-400'}`}>
+                                            <i className="fas fa-calculator text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Simulasi RTT</span>
+                                    </span>
+                                    <span className="sidebar-text text-[9px] bg-white/10 px-2 py-0.5 rounded-lg shrink-0 ml-1">CALC</span>
+                                    <span className="sidebar-tooltip">Simulasi RTT</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('dashAsuransi'); setIsSidebarOpen(false); }}
+                                    className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'dashAsuransi' ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-900/40' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <span className="flex items-center min-w-0">
+                                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'dashAsuransi' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-cyan-400'}`}>
+                                            <i className="fas fa-shield-heart text-sm"></i>
+                                        </span>
+                                        <span className="sidebar-text ml-2.5 truncate">Asuransi Klaim & Premi</span>
+                                    </span>
+                                    <span className="sidebar-text text-[9px] bg-cyan-400/20 text-cyan-300 px-1.5 py-0.5 rounded-md font-bold shrink-0 ml-1">LOOKER</span>
+                                    <span className="sidebar-tooltip">Asuransi Klaim & Premi</span>
+                                </button>
+                            </div>
+
+                            {isAdmin && (
+                                <>
+                                    <div className="sidebar-mini-divider"></div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-3 font-heading">
+                                        <p className="sidebar-section-header text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 font-heading">
                                             Manajemen Admin
                                         </p>
                                         <button
-                                            onClick={() => { setActiveTab('rekReal'); setIsSidebarOpen(false) }}
-                                            className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'rekReal' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                            onClick={() => { setActiveTab('rekReal'); setIsSidebarOpen(false); }}
+                                            className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'rekReal' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                         >
-                                            <i className="fas fa-table-list w-6 text-sm"></i> Rekap Realisasi
+                                            <span className="flex items-center min-w-0">
+                                                <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'rekReal' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400'}`}>
+                                                    <i className="fas fa-table-list text-sm"></i>
+                                                </span>
+                                                <span className="sidebar-text ml-2.5 truncate">Rekap Realisasi</span>
+                                            </span>
+                                            <span className="sidebar-tooltip">Rekap Realisasi</span>
                                         </button>
                                         <button
-                                            onClick={() => { setActiveTab('rekEst'); setIsSidebarOpen(false) }}
-                                            className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'rekEst' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                            onClick={() => { setActiveTab('rekEst'); setIsSidebarOpen(false); }}
+                                            className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'rekEst' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                         >
-                                            <i className="fas fa-calendar-check w-6 text-sm"></i> Rekap Estimasi
+                                            <span className="flex items-center min-w-0">
+                                                <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'rekEst' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400'}`}>
+                                                    <i className="fas fa-calendar-check text-sm"></i>
+                                                </span>
+                                                <span className="sidebar-text ml-2.5 truncate">Rekap Estimasi</span>
+                                            </span>
+                                            <span className="sidebar-tooltip">Rekap Estimasi</span>
                                         </button>
                                         <button
-                                            onClick={() => { setActiveTab('rekFollowup'); setIsSidebarOpen(false) }}
-                                            className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'rekFollowup' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                            onClick={() => { setActiveTab('rekFollowup'); setIsSidebarOpen(false); }}
+                                            className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'rekFollowup' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                         >
-                                            <i className="fas fa-camera-retro w-6 text-sm"></i> Rekap Tindak Lanjut
+                                            <span className="flex items-center min-w-0">
+                                                <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'rekFollowup' ? 'bg-white/20 text-white' : 'bg-white/[0.04] text-slate-400'}`}>
+                                                    <i className="fas fa-camera-retro text-sm"></i>
+                                                </span>
+                                                <span className="sidebar-text ml-2.5 truncate">Rekap Tindak Lanjut</span>
+                                            </span>
+                                            <span className="sidebar-tooltip">Rekap Tindak Lanjut</span>
                                         </button>
                                         <button
-                                            onClick={() => { setActiveTab('admin'); setIsSidebarOpen(false) }}
-                                            className={`w-full text-left px-3.5 py-2.5 rounded-2xl mb-1 transition flex items-center text-xs font-bold ${activeTab === 'admin' ? 'bg-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                            onClick={() => { setActiveTab('admin'); setIsSidebarOpen(false); }}
+                                            className={`sidebar-nav-btn group w-full text-left px-2.5 py-2 rounded-2xl mb-1 transition-all duration-200 flex items-center justify-between text-xs font-bold ${activeTab === 'admin' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                         >
-                                            <i className="fas fa-sliders w-6 text-sm"></i> Kelola & Setting
+                                            <span className="flex items-center min-w-0">
+                                                <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === 'admin' ? 'bg-slate-950/20 text-slate-950' : 'bg-white/[0.04] text-slate-400 group-hover:text-emerald-400'}`}>
+                                                    <i className="fas fa-sliders text-sm"></i>
+                                                </span>
+                                                <span className="sidebar-text ml-2.5 truncate">Kelola & Setting</span>
+                                            </span>
+                                            <span className="sidebar-tooltip">Kelola & Setting</span>
                                         </button>
                                     </div>
-                                )}
-                            </div>
+                                </>
+                            )}
                         </div>
 
-                        <div className="p-4 border-t border-white/10 bg-black/20">
-                            <div className="flex items-center justify-between">
+                        {/* Bottom User Profile: Compact & Expandable */}
+                        <div className="p-2 sm:p-2.5 border-t border-white/10 bg-slate-950/50 backdrop-blur-md">
+                            <div className="flex items-center justify-between p-1.5 rounded-2xl bg-white/[0.04] border border-white/10 shadow-sm overflow-hidden">
                                 <div className="flex items-center space-x-2.5 overflow-hidden">
-                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white font-black text-xs flex items-center justify-center shadow-sm">
-                                        {isAdmin ? 'AD' : 'AO'}
+                                    <div className="relative shrink-0">
+                                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shadow-emerald-500/20">
+                                            {isAdmin ? 'AD' : 'AO'}
+                                        </div>
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
                                     </div>
-                                    <div className="truncate">
-                                        <p className="text-xs font-extrabold text-white truncate font-heading">{isAdmin ? 'Administrator' : 'Account Officer'}</p>
-                                        <p className="text-[10px] text-slate-400 font-semibold">Area Medan 1</p>
+                                    <div className="sidebar-text truncate">
+                                        <p className="text-xs font-extrabold text-white truncate font-heading">{currentUser?.username || (isAdmin ? 'Administrator' : 'Account Officer')}</p>
+                                        <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">{isAdmin ? 'Administrator' : 'Account Officer'}</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={handleLogout}
-                                    className="text-slate-400 hover:text-rose-400 p-2 transition"
+                                    className="sidebar-text w-7 h-7 rounded-xl bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all duration-200 border border-white/5 hover:border-rose-500/30 shrink-0 ml-1"
                                     title="Keluar dari Akun"
                                 >
-                                    <i className="fas fa-power-off text-sm"></i>
+                                    <i className="fas fa-power-off text-xs"></i>
                                 </button>
                             </div>
                         </div>
-
                     </aside>
 
-                    <main className="main-content">
+                    <main className={`main-content ${isSidebarPinned ? 'sidebar-pinned' : ''}`}>
+
 
                         <header className="flex justify-between items-center mb-8 bg-white/90 backdrop-blur-xl p-4 md:px-6 rounded-3xl shadow-sm border border-slate-200/80 sticky top-4 z-40">
 
